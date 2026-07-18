@@ -6,3 +6,148 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+// Usuário e Autenticação
+
+model User {
+  id String @id @default(cuid())
+  name String
+  email String @unique
+  password String // hash bcrypt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  tasks Task[]
+  projects Project[]
+  notes Note[]
+  focusSessions FocusSession[]
+}
+
+model RefreshToken {
+  id String @id @default(cuid())
+  token String @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Tipo do Projeto
+
+model ProjectType {
+  id String @id @default(cuid())
+  name String @unique // ex: "general", "software"
+  availableStatus Json // ex: ["Todo", "In Progress", "Done"]
+
+  projects Project[]
+}
+
+// Projeto
+
+model Project {
+  id String @id @default(cuid())
+  name String
+  description String?
+  color String
+  isArchived Boolean @default(false)
+  isDeleted Boolean @default(false)
+  deletedAt DateTime?
+  order Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  typeId String
+  type ProjectType @relation(fields: [typeId], references: [id])
+
+  tasks Task[]
+  notes Note[]
+}
+
+// Tarefa
+
+model Task {
+  id String @id @default(cuid())
+  title String
+  description String?
+  status String @default("Todo")
+  priority Priority @default(Medium)
+  dueDate DateTime?
+  progress Int?
+  estimatedTime String?
+  tags Json @default("[]")
+  checklist Json @default("[]")
+  order Int @default(0)
+  isDeleted Boolean @default(false)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId String?
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // subtasks
+  parentTaskId String?
+  parentTask Task? @relation("SubTasks", fields: [parentTaskId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subTasks Task[] @relation("SubTasks")
+
+  focusSessions FocusSession[]
+}
+
+// Anotação
+
+model Note {
+  id String @id @default(cuid())
+  title String
+  content String
+  tags Json @default("[]")
+  isPinned Boolean @default(false)
+  order Int @default(0)
+  isDeleted Boolean @default(false)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId String?
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+// Sessão de Foco
+
+model FocusSession {
+  id String @id @default(cuid())
+  type FocusSessionType
+  durationSeconds Int
+  startedAt DateTime
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  taskId String?
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+}
+
+// Enums
+
+enum Priority {
+  Low
+  Medium
+  High
+}
+
+enum FocusSessionType {
+  pomodoro
+  stopwatch
+}
