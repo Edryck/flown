@@ -1,0 +1,76 @@
+import { prisma } from "../utils/prisma.js";
+
+async function findOwnedProject(id: string, userId: string) {
+  return prisma.project.findFirst({ where: { id, userId } });
+}
+
+export async function createProject(
+  userId: string,
+  data: { name: string; description?: string | null; color: string; typeId: string }
+) {
+  return prisma.project.create({ data: { ...data, userId } });
+}
+
+export async function findProjectsByUser(
+  userId: string,
+  filters: { isDeleted?: boolean; isArchived?: boolean } = {}
+) {
+  return prisma.project.findMany({
+    where: {
+      userId,
+      isDeleted: filters.isDeleted ?? false,
+      ...(filters.isArchived !== undefined ? { isArchived: filters.isArchived } : {}),
+    },
+    orderBy: { order: "asc" },
+  });
+}
+
+export async function findProjectById(id: string, userId: string) {
+  return findOwnedProject(id, userId);
+}
+
+export async function updateProject(
+  id: string,
+  userId: string,
+  data: { name?: string; description?: string | null; color?: string; typeId?: string }
+) {
+  const project = await findOwnedProject(id, userId);
+  if (!project) return null;
+  return prisma.project.update({ where: { id }, data });
+}
+
+export async function softDeleteProject(id: string, userId: string) {
+  const project = await findOwnedProject(id, userId);
+  if (!project) return null;
+  return prisma.project.update({
+    where: { id },
+    data: { isDeleted: true, deletedAt: new Date() },
+  });
+}
+
+export async function restoreProject(id: string, userId: string) {
+  const project = await findOwnedProject(id, userId);
+  if (!project) return null;
+  return prisma.project.update({
+    where: { id },
+    data: { isDeleted: false, deletedAt: null },
+  });
+}
+
+export async function permanentDeleteProject(id: string, userId: string) {
+  const project = await findOwnedProject(id, userId);
+  if (!project) return null;
+  return prisma.project.delete({ where: { id } });
+}
+
+export async function archiveProject(id: string, userId: string) {
+  const project = await findOwnedProject(id, userId);
+  if (!project) return null;
+  return prisma.project.update({ where: { id }, data: { isArchived: true } });
+}
+
+export async function unarchiveProject(id: string, userId: string) {
+  const project = await findOwnedProject(id, userId);
+  if (!project) return null;
+  return prisma.project.update({ where: { id }, data: { isArchived: false } });
+}
