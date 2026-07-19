@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
@@ -20,7 +21,9 @@ export function signAccessToken(userId: string): string {
 }
 
 export function signRefreshToken(userId: string): string {
-  return jwt.sign({ sub: userId }, getSecret("JWT_REFRESH_SECRET"), {
+  // jti garante que dois tokens do mesmo usuario nunca colidam, mesmo assinados
+  // no mesmo segundo (o "token" e @unique na tabela RefreshToken).
+  return jwt.sign({ sub: userId, jti: crypto.randomUUID() }, getSecret("JWT_REFRESH_SECRET"), {
     expiresIn: REFRESH_TOKEN_EXPIRES_IN,
   });
 }
