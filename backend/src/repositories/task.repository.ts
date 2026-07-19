@@ -108,9 +108,17 @@ export async function findSubtasks(parentTaskId: string, userId: string) {
   });
 }
 
-export async function softDeleteManyTasks(ids: string[], userId: string) {
+export async function softDeleteSubtasksByParentId(parentTaskId: string, userId: string) {
   return prisma.task.updateMany({
-    where: { id: { in: ids }, userId },
+    where: { parentTaskId, userId },
     data: { isDeleted: true, deletedAt: new Date() },
   });
+}
+
+export async function permanentDeleteSubtasksByParentId(parentTaskId: string, userId: string) {
+  return prisma.task.deleteMany({ where: { parentTaskId, userId } });
+}
+
+export async function permanentDeleteTasksByProjectId(projectId: string, userId: string) {
+  return prisma.task.deleteMany({ where: { projectId, userId } });
 }
