@@ -75,6 +75,10 @@ export async function permanentDeleteNote(id: string, userId: string) {
   return prisma.note.delete({ where: { id } });
 }
 
+export async function permanentDeleteNotesByProjectId(projectId: string, userId: string) {
+  return prisma.note.deleteMany({ where: { projectId, userId } });
+}
+
 export async function reorderNotes(userId: string, items: { id: string; order: number }[]) {
   return prisma.$transaction(
     items.map((item) =>
