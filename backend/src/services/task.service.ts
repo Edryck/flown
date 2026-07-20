@@ -32,11 +32,16 @@ type TaskInput = {
   parentTaskId?: string | null;
 };
 
-async function assertProjectStatus(projectId: string, userId: string, status: string) {
+async function assertProjectOwnership(projectId: string, userId: string) {
   const project = await findProjectById(projectId, userId);
   if (!project) {
     throw new AppError(404, "Project not found");
   }
+  return project;
+}
+
+async function assertProjectStatus(projectId: string, userId: string, status: string) {
+  const project = await assertProjectOwnership(projectId, userId);
   const type = await findProjectTypeById(project.typeId);
   const availableStatus = (type?.availableStatus as string[]) ?? [];
   if (!availableStatus.includes(status)) {
@@ -52,8 +57,12 @@ async function assertParentTask(parentTaskId: string, userId: string) {
 }
 
 export async function create(userId: string, data: TaskInput) {
-  if (data.projectId && data.status) {
-    await assertProjectStatus(data.projectId, userId, data.status);
+  if (data.projectId) {
+    if (data.status) {
+      await assertProjectStatus(data.projectId, userId, data.status);
+    } else {
+      await assertProjectOwnership(data.projectId, userId);
+    }
   }
   if (data.parentTaskId) {
     await assertParentTask(data.parentTaskId, userId);
@@ -80,8 +89,12 @@ export async function update(id: string, userId: string, data: Partial<TaskInput
   }
 
   const projectId = data.projectId !== undefined ? data.projectId : task.projectId;
-  if (projectId && data.status) {
-    await assertProjectStatus(projectId, userId, data.status);
+  if (projectId) {
+    if (data.status) {
+      await assertProjectStatus(projectId, userId, data.status);
+    } else {
+      await assertProjectOwnership(projectId, userId);
+    }
   }
   if (data.parentTaskId) {
     await assertParentTask(data.parentTaskId, userId);
