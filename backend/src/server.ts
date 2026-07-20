@@ -7,6 +7,9 @@ import { projectRoutes } from "./routes/project.routes.js";
 import { taskRoutes } from "./routes/task.routes.js";
 import { noteRoutes } from "./routes/note.routes.js";
 import { focusSessionRoutes } from "./routes/focus-session.routes.js";
+import { dashboardRoutes } from "./routes/dashboard.routes.js";
+import { searchRoutes } from "./routes/search.routes.js";
+import { trashRoutes } from "./routes/trash.routes.js";
 
 export function buildApp() {
   const app = Fastify({ logger: true });
@@ -20,6 +23,9 @@ export function buildApp() {
   app.register(taskRoutes);
   app.register(noteRoutes);
   app.register(focusSessionRoutes);
+  app.register(dashboardRoutes);
+  app.register(searchRoutes);
+  app.register(trashRoutes);
 
   return app;
 }
