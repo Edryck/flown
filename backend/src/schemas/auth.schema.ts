@@ -26,3 +26,7 @@ export const authResponseSchema = Joi.object({
     refreshToken: Joi.string(),
     user: userResponseSchema,
 });
+
+export const refreshResponseSchema = Joi.object({
+    accessToken: Joi.string().required(),
+});

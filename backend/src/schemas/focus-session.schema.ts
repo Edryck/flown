@@ -19,3 +19,13 @@ export const updateFocusSessionSchema = Joi.object({
 export const completeFocusSessionSchema = Joi.object({
   completedAt: Joi.date().optional(),
 });
+
+export const focusSessionResponseSchema = Joi.object({
+  id: Joi.string().required(),
+  type: Joi.string().valid("pomodoro", "stopwatch").required(),
+  durationSeconds: Joi.number().required(),
+  startedAt: Joi.date().required(),
+  completedAt: Joi.date().allow(null).required(),
+  taskId: Joi.string().allow(null).required(),
+  createdAt: Joi.date().required(),
+});

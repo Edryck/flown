@@ -13,3 +13,17 @@ export const updateProjectSchema = Joi.object({
     color: Joi.string().trim().pattern(/^#[0-9A-Fa-f]{6}$/).optional(),
     typeId: Joi.string().trim().optional()
 }).min(1).required();
+
+export const projectResponseSchema = Joi.object({
+    id: Joi.string().required(),
+    name: Joi.string().required(),
+    description: Joi.string().allow(null).required(),
+    color: Joi.string().required(),
+    isArchived: Joi.boolean().required(),
+    isDeleted: Joi.boolean().required(),
+    deletedAt: Joi.date().allow(null).required(),
+    order: Joi.number().required(),
+    typeId: Joi.string().required(),
+    createdAt: Joi.date().required(),
+    updatedAt: Joi.date().required(),
+});

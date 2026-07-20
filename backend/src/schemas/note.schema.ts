@@ -24,3 +24,17 @@ export const reorderNoteSchema = Joi.object({
       })
     ).min(1).required(),
 });
+
+export const noteResponseSchema = Joi.object({
+  id: Joi.string().required(),
+  title: Joi.string().required(),
+  content: Joi.string().required(),
+  tags: Joi.array().items(Joi.string()).required(),
+  isPinned: Joi.boolean().required(),
+  order: Joi.number().required(),
+  isDeleted: Joi.boolean().required(),
+  deletedAt: Joi.date().allow(null).required(),
+  projectId: Joi.string().allow(null).required(),
+  createdAt: Joi.date().required(),
+  updatedAt: Joi.date().required(),
+});

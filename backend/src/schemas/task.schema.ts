@@ -57,3 +57,23 @@ export const createSubTaskSchema = Joi.object({
   checklist: Joi.array().items(checklistItemSchema).optional().default([]),
   projectId: Joi.string().optional().allow(null),
 });
+
+export const taskResponseSchema = Joi.object({
+  id: Joi.string().required(),
+  title: Joi.string().required(),
+  description: Joi.string().allow(null).required(),
+  status: Joi.string().required(),
+  priority: Joi.string().valid("Low", "Medium", "High").required(),
+  dueDate: Joi.date().allow(null).required(),
+  progress: Joi.number().allow(null).required(),
+  estimatedTime: Joi.string().allow(null).required(),
+  tags: Joi.array().items(Joi.string()).required(),
+  checklist: Joi.array().items(checklistItemSchema).required(),
+  order: Joi.number().required(),
+  isDeleted: Joi.boolean().required(),
+  deletedAt: Joi.date().allow(null).required(),
+  projectId: Joi.string().allow(null).required(),
+  parentTaskId: Joi.string().allow(null).required(),
+  createdAt: Joi.date().required(),
+  updatedAt: Joi.date().required(),
+});
