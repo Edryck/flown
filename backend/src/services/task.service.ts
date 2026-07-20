@@ -32,6 +32,11 @@ type TaskInput = {
   parentTaskId?: string | null;
 };
 
+// Nao existe enum/flag de "concluida" no schema — "Done" e o unico status em
+// comum entre os dois ProjectType seedados (software/general), entao serve
+// como a convencao de "task concluida" pro Dashboard (log 09).
+export const COMPLETED_STATUS = "Done";
+
 async function assertProjectOwnership(projectId: string, userId: string) {
   const project = await findProjectById(projectId, userId);
   if (!project) {
@@ -67,11 +72,18 @@ export async function create(userId: string, data: TaskInput) {
   if (data.parentTaskId) {
     await assertParentTask(data.parentTaskId, userId);
   }
-  return createTask(userId, data);
+  const completedAt = data.status === COMPLETED_STATUS ? new Date() : null;
+  return createTask(userId, { ...data, completedAt });
 }
 
-export async function list(userId: string, filters: { projectId?: string | null; isDeleted?: boolean } = {}) {
-  return findTasksByUser(userId, filters);
+export async function list(
+  userId: string,
+  filters: { projectId?: string | null; isDeleted?: boolean; search?: string; tag?: string } = {}
+) {
+  const { tag, ...repositoryFilters } = filters;
+  const tasks = await findTasksByUser(userId, repositoryFilters);
+  if (!tag) return tasks;
+  return tasks.filter((task) => (task.tags as string[]).includes(tag));
 }
 
 export async function getById(id: string, userId: string) {
@@ -100,7 +112,15 @@ export async function update(id: string, userId: string, data: Partial<TaskInput
     await assertParentTask(data.parentTaskId, userId);
   }
 
-  const updated = await updateTask(id, userId, data);
+  let completedAt: Date | null | undefined;
+  if (data.status && data.status !== task.status) {
+    completedAt = data.status === COMPLETED_STATUS ? new Date() : null;
+  }
+
+  const updated = await updateTask(id, userId, {
+    ...data,
+    ...(completedAt !== undefined ? { completedAt } : {}),
+  });
   if (!updated) {
     throw new AppError(404, "Task not found");
   }
