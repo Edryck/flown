@@ -11,8 +11,8 @@ import {
   unarchiveProject,
   updateProject,
 } from "../repositories/project.repository.js";
-import { permanentDeleteTasksByProjectId } from "../repositories/task.repository.js";
-import { permanentDeleteNotesByProjectId } from "../repositories/note.repository.js";
+import { permanentDeleteTasksByProjectId, softDeleteTasksByProjectId } from "../repositories/task.repository.js";
+import { permanentDeleteNotesByProjectId, softDeleteNotesByProjectId } from "../repositories/note.repository.js";
 
 type ProjectInput = {
   name: string;
@@ -34,7 +34,10 @@ export async function create(userId: string, data: ProjectInput) {
   return createProject(userId, data);
 }
 
-export async function list(userId: string, filters: { isDeleted?: boolean; isArchived?: boolean } = {}) {
+export async function list(
+  userId: string,
+  filters: { isDeleted?: boolean; isArchived?: boolean; search?: string } = {}
+) {
   return findProjectsByUser(userId, filters);
 }
 
@@ -62,6 +65,12 @@ export async function softDelete(id: string, userId: string) {
   if (!project) {
     throw new AppError(404, "Project not found");
   }
+  // Mesma logica do task.service.softDelete cascateando pra subtask: sem isso,
+  // as tasks/notas do projeto continuam "vivas" fora da lixeira mesmo com o
+  // projeto trashado, e um DELETE /trash/empty as apagaria de surpresa (o
+  // permanentDelete de projeto cascateia tasks/notas independente de isDeleted).
+  await softDeleteTasksByProjectId(id, userId);
+  await softDeleteNotesByProjectId(id, userId);
   return project;
 }
 

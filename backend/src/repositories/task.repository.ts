@@ -21,6 +21,7 @@ export async function createTask(
     checklist?: ChecklistItem[];
     projectId?: string | null;
     parentTaskId?: string | null;
+    completedAt?: Date | null;
   }
 ) {
   return prisma.task.create({ data: { ...data, userId } });
@@ -28,15 +29,29 @@ export async function createTask(
 
 export async function findTasksByUser(
   userId: string,
-  filters: { projectId?: string | null; isDeleted?: boolean } = {}
+  filters: { projectId?: string | null; isDeleted?: boolean; search?: string } = {}
 ) {
   return prisma.task.findMany({
     where: {
       userId,
       isDeleted: filters.isDeleted ?? false,
       ...(filters.projectId !== undefined ? { projectId: filters.projectId } : {}),
+      ...(filters.search
+        ? { OR: [{ title: { contains: filters.search } }, { description: { contains: filters.search } }] }
+        : {}),
     },
     orderBy: { order: "asc" },
+  });
+}
+
+export async function searchTasks(userId: string, query: string) {
+  return prisma.task.findMany({
+    where: {
+      userId,
+      isDeleted: false,
+      OR: [{ title: { contains: query } }, { description: { contains: query } }],
+    },
+    orderBy: { updatedAt: "desc" },
   });
 }
 
@@ -59,6 +74,7 @@ export async function updateTask(
     checklist: ChecklistItem[];
     projectId: string | null;
     parentTaskId: string | null;
+    completedAt: Date | null;
   }>
 ) {
   const task = await findOwnedTask(id, userId);
@@ -121,4 +137,29 @@ export async function permanentDeleteSubtasksByParentId(parentTaskId: string, us
 
 export async function permanentDeleteTasksByProjectId(projectId: string, userId: string) {
   return prisma.task.deleteMany({ where: { projectId, userId } });
+}
+
+export async function softDeleteTasksByProjectId(projectId: string, userId: string) {
+  return prisma.task.updateMany({
+    where: { projectId, userId, isDeleted: false },
+    data: { isDeleted: true, deletedAt: new Date() },
+  });
+}
+
+export async function findTasksForDashboardWindow(userId: string, since: Date) {
+  return prisma.task.findMany({
+    where: {
+      userId,
+      isDeleted: false,
+      OR: [{ createdAt: { gte: since } }, { completedAt: { gte: since } }],
+    },
+    select: { status: true, priority: true, createdAt: true, completedAt: true, dueDate: true },
+  });
+}
+
+export async function findAllActiveTasksSnapshot(userId: string) {
+  return prisma.task.findMany({
+    where: { userId, isDeleted: false },
+    select: { status: true, priority: true, dueDate: true, completedAt: true },
+  });
 }

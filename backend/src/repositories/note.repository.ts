@@ -19,15 +19,29 @@ export async function createNote(
 
 export async function findNotesByUser(
   userId: string,
-  filters: { projectId?: string | null; isDeleted?: boolean } = {}
+  filters: { projectId?: string | null; isDeleted?: boolean; search?: string } = {}
 ) {
   return prisma.note.findMany({
     where: {
       userId,
       isDeleted: filters.isDeleted ?? false,
       ...(filters.projectId !== undefined ? { projectId: filters.projectId } : {}),
+      ...(filters.search
+        ? { OR: [{ title: { contains: filters.search } }, { content: { contains: filters.search } }] }
+        : {}),
     },
     orderBy: { order: "asc" },
+  });
+}
+
+export async function searchNotes(userId: string, query: string) {
+  return prisma.note.findMany({
+    where: {
+      userId,
+      isDeleted: false,
+      OR: [{ title: { contains: query } }, { content: { contains: query } }],
+    },
+    orderBy: { updatedAt: "desc" },
   });
 }
 
@@ -77,6 +91,13 @@ export async function permanentDeleteNote(id: string, userId: string) {
 
 export async function permanentDeleteNotesByProjectId(projectId: string, userId: string) {
   return prisma.note.deleteMany({ where: { projectId, userId } });
+}
+
+export async function softDeleteNotesByProjectId(projectId: string, userId: string) {
+  return prisma.note.updateMany({
+    where: { projectId, userId, isDeleted: false },
+    data: { isDeleted: true, deletedAt: new Date() },
+  });
 }
 
 export async function reorderNotes(userId: string, items: { id: string; order: number }[]) {
