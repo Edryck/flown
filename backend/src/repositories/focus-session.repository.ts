@@ -71,3 +71,10 @@ export async function sumFocusDurationByUser(userId: string, since?: Date) {
     _count: true,
   });
 }
+
+export async function findCompletedSessionsSince(userId: string, since: Date) {
+  return prisma.focusSession.findMany({
+    where: { userId, completedAt: { gte: since } },
+    select: { completedAt: true },
+  });
+}
