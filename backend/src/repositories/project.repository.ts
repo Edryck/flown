@@ -13,15 +13,29 @@ export async function createProject(
 
 export async function findProjectsByUser(
   userId: string,
-  filters: { isDeleted?: boolean; isArchived?: boolean } = {}
+  filters: { isDeleted?: boolean; isArchived?: boolean; search?: string } = {}
 ) {
   return prisma.project.findMany({
     where: {
       userId,
       isDeleted: filters.isDeleted ?? false,
       ...(filters.isArchived !== undefined ? { isArchived: filters.isArchived } : {}),
+      ...(filters.search
+        ? { OR: [{ name: { contains: filters.search } }, { description: { contains: filters.search } }] }
+        : {}),
     },
     orderBy: { order: "asc" },
+  });
+}
+
+export async function searchProjects(userId: string, query: string) {
+  return prisma.project.findMany({
+    where: {
+      userId,
+      isDeleted: false,
+      OR: [{ name: { contains: query } }, { description: { contains: query } }],
+    },
+    orderBy: { updatedAt: "desc" },
   });
 }
 

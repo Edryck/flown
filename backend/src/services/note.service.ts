@@ -22,8 +22,14 @@ export async function create(userId: string, data: NoteInput) {
   return createNote(userId, data);
 }
 
-export async function list(userId: string, filters: { projectId?: string | null; isDeleted?: boolean } = {}) {
-  return findNotesByUser(userId, filters);
+export async function list(
+  userId: string,
+  filters: { projectId?: string | null; isDeleted?: boolean; search?: string; tag?: string } = {}
+) {
+  const { tag, ...repositoryFilters } = filters;
+  const notes = await findNotesByUser(userId, repositoryFilters);
+  if (!tag) return notes;
+  return notes.filter((note) => (note.tags as string[]).includes(tag));
 }
 
 export async function getById(id: string, userId: string) {

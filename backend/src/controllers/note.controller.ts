@@ -10,10 +10,12 @@ function parseBoolean(value: unknown): boolean | undefined {
 }
 
 export async function list(request: FastifyRequest, reply: FastifyReply) {
-  const query = request.query as { projectId?: string; isDeleted?: string };
+  const query = request.query as { projectId?: string; isDeleted?: string; q?: string; tag?: string };
   const notes = await noteService.list(request.user.id, {
     projectId: query.projectId,
     isDeleted: parseBoolean(query.isDeleted),
+    search: query.q,
+    tag: query.tag,
   });
   return reply.status(200).send(formatResponse(noteResponseSchema, notes));
 }

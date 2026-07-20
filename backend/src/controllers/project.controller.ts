@@ -14,10 +14,11 @@ function parseBoolean(value: unknown): boolean | undefined {
 }
 
 export async function list(request: FastifyRequest, reply: FastifyReply) {
-  const query = request.query as { isDeleted?: string; isArchived?: string };
+  const query = request.query as { isDeleted?: string; isArchived?: string; q?: string };
   const projects = await projectService.list(request.user.id, {
     isDeleted: parseBoolean(query.isDeleted),
     isArchived: parseBoolean(query.isArchived),
+    search: query.q,
   });
   return reply.status(200).send(formatResponse(projectResponseSchema, projects));
 }
