@@ -11,5 +11,5 @@ class ApiException implements Exception {
   bool get isValidationError => statusCode == 400;
 
   @override
-  String toString() => 'ApiException($statusCode): $message';
+  String toString() => message;
 }
