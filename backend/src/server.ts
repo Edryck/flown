@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import Fastify from "fastify";
 import { errorHandler } from "./middlewares/error-handler.middleware.js";
 import { authRoutes } from "./routes/auth.routes.js";
@@ -36,7 +37,12 @@ async function start() {
   await app.listen({ port, host: "0.0.0.0" });
 }
 
-const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+// process.argv[1] vem com barra invertida no Windows (D:\...), sem prefixo
+// file:// — comparar como string ingenua com import.meta.url (que sempre
+// normaliza pra file:///D:/...) falha silenciosamente la. pathToFileURL
+// converte o path do jeito certo pro SO atual antes de comparar.
+const isMainModule =
+  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isMainModule) {
   start().catch((err) => {
