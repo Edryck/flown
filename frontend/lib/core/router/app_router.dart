@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../widgets/app_shell.dart';
+import '../widgets/splash_screen.dart';
+import '../../features/auth/providers/auth_controller.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/focus/screens/focus_screen.dart';
@@ -12,19 +15,53 @@ import '../../features/settings/screens/settings_screen.dart';
 import '../../features/tasks/screens/tasks_screen.dart';
 import '../../features/trash/screens/trash_screen.dart';
 
+/// Notifica o `GoRouter` (via `refreshListenable`) toda vez que o estado de
+/// auth muda, sem recriar a instancia do router — recriar o GoRouter a cada
+/// mudanca de estado perderia o historico de navegacao interno dele.
+class _AuthRefreshNotifier extends ChangeNotifier {
+  _AuthRefreshNotifier(Ref ref) {
+    ref.listen(authControllerProvider, (_, _) => notifyListeners());
+  }
+}
+
 /// Rotas do app — mapeiam pros 10 grupos de endpoint do backend real
 /// (auth, users/settings, project-types+projects, tasks, notes,
 /// sessions/focus, dashboard, search, trash — docs/FLOWN_DOC.md §13), nao
 /// pras rotas de demo do protótipo React (esse so serviu de referencia
 /// visual, ver docs/prototype/00-overview.md).
-///
-/// TODO (proxima etapa, feature "auth"): guarda de autenticacao via
-/// `redirect`, checando um provider de sessao antes de liberar qualquer
-/// rota fora de /login.
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final refreshNotifier = _AuthRefreshNotifier(ref);
+
   return GoRouter(
-    initialLocation: '/dashboard',
+    initialLocation: '/splash',
+    refreshListenable: refreshNotifier,
+    redirect: (context, state) {
+      final authState = ref.read(authControllerProvider);
+      final location = state.matchedLocation;
+      final isSplash = location == '/splash';
+      final isLoggingIn = location == '/login';
+      // /login e /splash sao publicas — enquanto isLoading, um clique em
+      // "Entrar"/"Criar conta" tambem deixa o estado em loading (log da
+      // tela), e isso NAO pode empurrar o usuario pra /splash: perderia o
+      // que foi digitado no formulario. So a checagem inicial de sessao
+      // (usuario ainda em rota protegida/raiz) deve mostrar a splash.
+      final isPublicRoute = isSplash || isLoggingIn;
+
+      if (authState.isLoading) {
+        return isPublicRoute ? null : '/splash';
+      }
+
+      final isAuthenticated = authState.valueOrNull != null;
+
+      if (!isAuthenticated) {
+        return isLoggingIn ? null : '/login';
+      }
+
+      if (isPublicRoute) return '/dashboard';
+      return null;
+    },
     routes: [
+      GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       ShellRoute(
         builder: (context, state, child) {
