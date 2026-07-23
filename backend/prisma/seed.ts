@@ -1,4 +1,7 @@
+import bcrypt from "bcrypt";
 import { prisma } from "../src/utils/prisma.js";
+
+const DEV_USER_ID = "dev-user";
 
 const projectTypes = [
   {
@@ -19,6 +22,21 @@ async function main() {
       create: type,
     });
   }
+  // Usuario fixo usado pelo bypass de dev do frontend (AuthController.devBypass,
+  // so aparece com SKIP_AUTH=true) — nunca loga de verdade, mas precisa existir
+  // como User real pra FK de Task/Project/Note/FocusSession nao quebrar.
+  const devPasswordHash = await bcrypt.hash("dev-only-not-a-real-password", 10);
+  await prisma.user.upsert({
+    where: { id: DEV_USER_ID },
+    update: {},
+    create: {
+      id: DEV_USER_ID,
+      name: "Dev User",
+      email: "dev@flown.local",
+      password: devPasswordHash,
+    },
+  });
+
   console.log("Seed completed.");
 }
 

@@ -1,5 +1,6 @@
 import { pathToFileURL } from "node:url";
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import { errorHandler } from "./middlewares/error-handler.middleware.js";
 import { authRoutes } from "./routes/auth.routes.js";
 import { userRoutes } from "./routes/user.routes.js";
@@ -14,6 +15,24 @@ import { trashRoutes } from "./routes/trash.routes.js";
 
 export function buildApp() {
   const app = Fastify({ logger: true });
+
+  // origin: true reflete o Origin da requisicao — em dev o Flutter Web sobe
+  // em porta aleatoria a cada `flutter run` (localhost:8765, 8766, ...), nao
+  // da pra fixar uma lista. Revisitar com uma allowlist quando existir
+  // ambiente de producao de verdade.
+  //
+  // methods/allowedHeaders explicitos (nao só os defaults do plugin): o
+  // preflight (OPTIONS) de PATCH/POST/DELETE precisa refletir de volta
+  // "authorization" (token JWT) e "content-type" (body JSON) pro navegador
+  // liberar a requisicao de verdade depois do preflight — sem isso, o
+  // preflight em si pode responder 204 (parece "ok" no log do servidor) e
+  // mesmo assim o navegador bloquear o envio da requisicao real, silenciosamente
+  // do lado do cliente (Dio so enxerga "sem resposta", sem detalhe de CORS).
+  app.register(cors, {
+    origin: true,
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  });
 
   app.setErrorHandler(errorHandler);
 
