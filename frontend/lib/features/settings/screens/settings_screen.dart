@@ -1,10 +1,879 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/widgets/placeholder_screen.dart';
+import '../../../core/api/api_exception.dart';
+import '../../../core/models/task_priority.dart';
+import '../../../core/theme/theme_mode_provider.dart';
+import '../../../core/widgets/priority_badge.dart';
+import '../../auth/providers/auth_controller.dart';
+import '../../auth/providers/auth_repository.dart';
+import '../providers/settings_preferences.dart';
 
-class SettingsScreen extends StatelessWidget {
+enum _SettingsSection { account, appearance, tasks, notes, notifications, about }
+
+/// Tela de Configurações — tradução de Settings.tsx
+/// (docs/prototype/screens/settings.md): mesmos campos/controles dos cards
+/// de Aparência/Preferências de Tarefas/Preferências de Anotações/
+/// Notificações/Informações do App. Diferenças deliberadas do protótipo:
+///   - navegação por sidebar em vez dos cards empilhados um embaixo do
+///     outro — a tela cresceu (6 seções + Conta) e ficou longa demais pra
+///     rolar; decisão tomada depois de traduzir a versão empilhada, não
+///     parte da tradução original;
+///   - "Conta" é a primeira seção (não existe no protótipo — ele não
+///     modela login/logout) — editar nome/e-mail, trocar senha, sair;
+///   - "Salvar alterações" persiste de verdade (`shared_preferences`,
+///     `settings_preferences.dart`) — o protótipo só mostra um toast e
+///     esquece tudo ao recarregar;
+///   - "Lixeira" fica fora do painel de seções, como atalho de navegação
+///     separado (não é uma preferência).
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => const PlaceholderScreen(title: 'Configurações');
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  _SettingsSection _section = _SettingsSection.account;
+
+  bool _prefsHydrated = false;
+  TaskPriority _defaultPriority = TaskPriority.medium;
+  String _defaultStatus = 'todo';
+  bool _showCompletedTasks = true;
+  bool _autoArchiveDone = false;
+  String _defaultNoteView = 'grid';
+  bool _autoSaveNotes = true;
+  bool _showNotePreview = true;
+  bool _notifyDueDate = true;
+  bool _notifyOverdue = true;
+  bool _notifyStatusChange = false;
+  bool _notifyReminder = true;
+  bool _savingPrefs = false;
+
+  bool _accountHydrated = false;
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  bool _savingAccount = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  void _hydratePrefs(SettingsPreferences prefs) {
+    _defaultPriority = prefs.defaultPriority;
+    _defaultStatus = prefs.defaultStatus;
+    _showCompletedTasks = prefs.showCompletedTasks;
+    _autoArchiveDone = prefs.autoArchiveDone;
+    _defaultNoteView = prefs.defaultNoteView;
+    _autoSaveNotes = prefs.autoSaveNotes;
+    _showNotePreview = prefs.showNotePreview;
+    _notifyDueDate = prefs.notifyDueDate;
+    _notifyOverdue = prefs.notifyOverdue;
+    _notifyStatusChange = prefs.notifyStatusChange;
+    _notifyReminder = prefs.notifyReminder;
+    _prefsHydrated = true;
+  }
+
+  Future<void> _savePreferences() async {
+    setState(() => _savingPrefs = true);
+    try {
+      await ref.read(settingsPreferencesControllerProvider.notifier).save(
+            SettingsPreferences(
+              defaultPriority: _defaultPriority,
+              defaultStatus: _defaultStatus,
+              showCompletedTasks: _showCompletedTasks,
+              autoArchiveDone: _autoArchiveDone,
+              defaultNoteView: _defaultNoteView,
+              autoSaveNotes: _autoSaveNotes,
+              showNotePreview: _showNotePreview,
+              notifyDueDate: _notifyDueDate,
+              notifyOverdue: _notifyOverdue,
+              notifyStatusChange: _notifyStatusChange,
+              notifyReminder: _notifyReminder,
+            ),
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Configurações salvas com sucesso')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingPrefs = false);
+    }
+  }
+
+  Future<void> _saveAccount() async {
+    setState(() => _savingAccount = true);
+    try {
+      await ref.read(authControllerProvider.notifier).updateProfile(
+            name: _nameController.text.trim(),
+            email: _emailController.text.trim(),
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Conta atualizada com sucesso')));
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.message : 'Erro ao atualizar a conta';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _savingAccount = false);
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final currentController = TextEditingController();
+    final newController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Trocar senha'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: currentController,
+                decoration: const InputDecoration(labelText: 'Senha atual'),
+                obscureText: true,
+                validator: (v) => (v == null || v.isEmpty) ? 'Obrigatório' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: newController,
+                decoration: const InputDecoration(labelText: 'Nova senha'),
+                obscureText: true,
+                validator: (v) => (v == null || v.length < 8) ? 'Mínimo de 8 caracteres' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) Navigator.pop(context, true);
+            },
+            child: const Text('Trocar senha'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await ref.read(authRepositoryProvider).changePassword(
+              currentPassword: currentController.text,
+              newPassword: newController.text,
+            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Senha alterada com sucesso')));
+        }
+      } catch (e) {
+        if (mounted) {
+          final message = e is ApiException ? e.message : 'Erro ao trocar a senha';
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        }
+      }
+    }
+    currentController.dispose();
+    newController.dispose();
+  }
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sair da conta?'),
+        content: const Text('Você vai precisar entrar de novo pra acessar suas tarefas.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sair')),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(authControllerProvider.notifier).logout();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final prefsAsync = ref.watch(settingsPreferencesControllerProvider);
+    final themeMode = ref.watch(appThemeModeProvider);
+    final isDark = switch (themeMode) {
+      ThemeMode.dark => true,
+      ThemeMode.light => false,
+      ThemeMode.system => MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+    };
+    final authState = ref.watch(authControllerProvider);
+    final user = authState.valueOrNull;
+
+    prefsAsync.whenData((prefs) {
+      if (!_prefsHydrated) _hydratePrefs(prefs);
+    });
+    if (user != null && !_accountHydrated) {
+      _nameController.text = user.name;
+      _emailController.text = user.email;
+      _accountHydrated = true;
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Configurações', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
+            Text(
+              'Personalize o Flown de acordo com suas preferências.',
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.cardTheme.color ?? theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: 220,
+                      child: _Sidebar(selected: _section, onSelected: (s) => setState(() => _section = s)),
+                    ),
+                    VerticalDivider(width: 1, color: theme.colorScheme.outlineVariant),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: switch (_section) {
+                          _SettingsSection.account => _AccountSection(
+                              nameController: _nameController,
+                              emailController: _emailController,
+                              saving: _savingAccount,
+                              onSave: _saveAccount,
+                              onChangePassword: _changePassword,
+                              onLogout: _logout,
+                            ),
+                          _SettingsSection.appearance => _AppearanceSection(
+                              isDark: isDark,
+                              onChanged: (dark) => ref
+                                  .read(appThemeModeProvider.notifier)
+                                  .toggle(dark ? Brightness.light : Brightness.dark),
+                            ),
+                          _SettingsSection.tasks => _TaskPrefsSection(
+                              defaultPriority: _defaultPriority,
+                              onDefaultPriorityChanged: (v) => setState(() => _defaultPriority = v),
+                              defaultStatus: _defaultStatus,
+                              onDefaultStatusChanged: (v) => setState(() => _defaultStatus = v),
+                              showCompletedTasks: _showCompletedTasks,
+                              onShowCompletedTasksChanged: (v) => setState(() => _showCompletedTasks = v),
+                              autoArchiveDone: _autoArchiveDone,
+                              onAutoArchiveDoneChanged: (v) => setState(() => _autoArchiveDone = v),
+                              saving: _savingPrefs,
+                              onSave: _savePreferences,
+                            ),
+                          _SettingsSection.notes => _NotePrefsSection(
+                              defaultNoteView: _defaultNoteView,
+                              onDefaultNoteViewChanged: (v) => setState(() => _defaultNoteView = v),
+                              autoSaveNotes: _autoSaveNotes,
+                              onAutoSaveNotesChanged: (v) => setState(() => _autoSaveNotes = v),
+                              showNotePreview: _showNotePreview,
+                              onShowNotePreviewChanged: (v) => setState(() => _showNotePreview = v),
+                              saving: _savingPrefs,
+                              onSave: _savePreferences,
+                            ),
+                          _SettingsSection.notifications => _NotificationsSection(
+                              notifyDueDate: _notifyDueDate,
+                              onNotifyDueDateChanged: (v) => setState(() => _notifyDueDate = v),
+                              notifyOverdue: _notifyOverdue,
+                              onNotifyOverdueChanged: (v) => setState(() => _notifyOverdue = v),
+                              notifyStatusChange: _notifyStatusChange,
+                              onNotifyStatusChangeChanged: (v) => setState(() => _notifyStatusChange = v),
+                              notifyReminder: _notifyReminder,
+                              onNotifyReminderChanged: (v) => setState(() => _notifyReminder = v),
+                              saving: _savingPrefs,
+                              onSave: _savePreferences,
+                            ),
+                          _SettingsSection.about => _AboutSection(isDark: isDark),
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.cardTheme.color ?? theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Lixeira'),
+                subtitle: const Text('Projetos, tarefas e anotações excluídos'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.go('/trash'),
+              ),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Sidebar extends StatelessWidget {
+  const _Sidebar({required this.selected, required this.onSelected});
+
+  final _SettingsSection selected;
+  final ValueChanged<_SettingsSection> onSelected;
+
+  static const _items = [
+    (section: _SettingsSection.account, icon: Icons.person_outline, label: 'Conta'),
+    (section: _SettingsSection.appearance, icon: Icons.palette_outlined, label: 'Aparência'),
+    (section: _SettingsSection.tasks, icon: Icons.check_box_outlined, label: 'Tarefas'),
+    (section: _SettingsSection.notes, icon: Icons.description_outlined, label: 'Anotações'),
+    (section: _SettingsSection.notifications, icon: Icons.notifications_outlined, label: 'Notificações'),
+    (section: _SettingsSection.about, icon: Icons.info_outline, label: 'Sobre'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      color: colorScheme.surfaceContainerLow,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final item in _items)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Material(
+                color: item.section == selected ? colorScheme.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => onSelected(item.section),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        Icon(
+                          item.icon,
+                          size: 18,
+                          color: item.section == selected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          item.label,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: item.section == selected ? colorScheme.onPrimary : colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+class _AccountSection extends StatelessWidget {
+  const _AccountSection({
+    required this.nameController,
+    required this.emailController,
+    required this.saving,
+    required this.onSave,
+    required this.onChangePassword,
+    required this.onLogout,
+  });
+
+  final TextEditingController nameController;
+  final TextEditingController emailController;
+  final bool saving;
+  final VoidCallback onSave;
+  final VoidCallback onChangePassword;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _SectionHeader(title: 'Conta'),
+        TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nome')),
+        const SizedBox(height: 12),
+        TextField(controller: emailController, decoration: const InputDecoration(labelText: 'E-mail')),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            FilledButton(
+              onPressed: saving ? null : onSave,
+              child: saving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Salvar conta'),
+            ),
+            OutlinedButton(onPressed: onChangePassword, child: const Text('Trocar senha')),
+            TextButton.icon(
+              onPressed: onLogout,
+              icon: Icon(Icons.logout, size: 18, color: theme.colorScheme.error),
+              label: Text('Sair', style: TextStyle(color: theme.colorScheme.error)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AppearanceSection extends StatelessWidget {
+  const _AppearanceSection({required this.isDark, required this.onChanged});
+
+  final bool isDark;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _SectionHeader(title: 'Aparência'),
+        _SettingRow(
+          label: 'Tema',
+          description: 'Escolha entre modo claro e escuro',
+          control: _ThemeSegmentedControl(isDark: isDark, onChanged: onChanged),
+        ),
+      ],
+    );
+  }
+}
+
+class _TaskPrefsSection extends StatelessWidget {
+  const _TaskPrefsSection({
+    required this.defaultPriority,
+    required this.onDefaultPriorityChanged,
+    required this.defaultStatus,
+    required this.onDefaultStatusChanged,
+    required this.showCompletedTasks,
+    required this.onShowCompletedTasksChanged,
+    required this.autoArchiveDone,
+    required this.onAutoArchiveDoneChanged,
+    required this.saving,
+    required this.onSave,
+  });
+
+  final TaskPriority defaultPriority;
+  final ValueChanged<TaskPriority> onDefaultPriorityChanged;
+  final String defaultStatus;
+  final ValueChanged<String> onDefaultStatusChanged;
+  final bool showCompletedTasks;
+  final ValueChanged<bool> onShowCompletedTasksChanged;
+  final bool autoArchiveDone;
+  final ValueChanged<bool> onAutoArchiveDoneChanged;
+  final bool saving;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _SectionHeader(title: 'Preferências de Tarefas'),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<TaskPriority>(
+                initialValue: defaultPriority,
+                decoration: const InputDecoration(labelText: 'Prioridade padrão'),
+                items: [
+                  for (final p in TaskPriority.values)
+                    DropdownMenuItem(value: p, child: Text(PriorityBadge.labels[p]!)),
+                ],
+                onChanged: (v) => onDefaultPriorityChanged(v ?? TaskPriority.medium),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: defaultStatus,
+                decoration: const InputDecoration(labelText: 'Status padrão'),
+                items: const [
+                  DropdownMenuItem(value: 'backlog', child: Text('Backlog')),
+                  DropdownMenuItem(value: 'todo', child: Text('A fazer')),
+                  DropdownMenuItem(value: 'in_progress', child: Text('Em andamento')),
+                ],
+                onChanged: (v) => onDefaultStatusChanged(v ?? 'todo'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _SettingRow(
+          label: 'Exibir tarefas concluídas',
+          description: 'Mostra tarefas com status "Concluído" na listagem',
+          control: Switch(value: showCompletedTasks, onChanged: onShowCompletedTasksChanged),
+        ),
+        const Divider(),
+        _SettingRow(
+          label: 'Arquivar concluídas automaticamente',
+          description: 'Move tarefas concluídas para o arquivo após 7 dias',
+          control: Switch(value: autoArchiveDone, onChanged: onAutoArchiveDoneChanged),
+        ),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: saving ? null : onSave,
+            child: saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Salvar alterações'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotePrefsSection extends StatelessWidget {
+  const _NotePrefsSection({
+    required this.defaultNoteView,
+    required this.onDefaultNoteViewChanged,
+    required this.autoSaveNotes,
+    required this.onAutoSaveNotesChanged,
+    required this.showNotePreview,
+    required this.onShowNotePreviewChanged,
+    required this.saving,
+    required this.onSave,
+  });
+
+  final String defaultNoteView;
+  final ValueChanged<String> onDefaultNoteViewChanged;
+  final bool autoSaveNotes;
+  final ValueChanged<bool> onAutoSaveNotesChanged;
+  final bool showNotePreview;
+  final ValueChanged<bool> onShowNotePreviewChanged;
+  final bool saving;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _SectionHeader(title: 'Preferências de Anotações'),
+        DropdownButtonFormField<String>(
+          initialValue: defaultNoteView,
+          decoration: const InputDecoration(labelText: 'Visualização padrão'),
+          items: const [
+            DropdownMenuItem(value: 'grid', child: Text('Grade')),
+            DropdownMenuItem(value: 'list', child: Text('Lista')),
+          ],
+          onChanged: (v) => onDefaultNoteViewChanged(v ?? 'grid'),
+        ),
+        const SizedBox(height: 8),
+        _SettingRow(
+          label: 'Salvar automaticamente',
+          description: 'Salva anotações enquanto você digita',
+          control: Switch(value: autoSaveNotes, onChanged: onAutoSaveNotesChanged),
+        ),
+        const Divider(),
+        _SettingRow(
+          label: 'Exibir prévia das anotações',
+          description: 'Mostra os primeiros caracteres do conteúdo no card',
+          control: Switch(value: showNotePreview, onChanged: onShowNotePreviewChanged),
+        ),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: saving ? null : onSave,
+            child: saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Salvar alterações'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationsSection extends StatelessWidget {
+  const _NotificationsSection({
+    required this.notifyDueDate,
+    required this.onNotifyDueDateChanged,
+    required this.notifyOverdue,
+    required this.onNotifyOverdueChanged,
+    required this.notifyStatusChange,
+    required this.onNotifyStatusChangeChanged,
+    required this.notifyReminder,
+    required this.onNotifyReminderChanged,
+    required this.saving,
+    required this.onSave,
+  });
+
+  final bool notifyDueDate;
+  final ValueChanged<bool> onNotifyDueDateChanged;
+  final bool notifyOverdue;
+  final ValueChanged<bool> onNotifyOverdueChanged;
+  final bool notifyStatusChange;
+  final ValueChanged<bool> onNotifyStatusChangeChanged;
+  final bool notifyReminder;
+  final ValueChanged<bool> onNotifyReminderChanged;
+  final bool saving;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _SectionHeader(title: 'Notificações'),
+        _SettingRow(
+          label: 'Prazo se aproximando',
+          description: 'Notifica quando uma tarefa estiver prestes a vencer',
+          control: Switch(value: notifyDueDate, onChanged: onNotifyDueDateChanged),
+        ),
+        const Divider(),
+        _SettingRow(
+          label: 'Tarefas atrasadas',
+          description: 'Notifica sobre tarefas com prazo vencido',
+          control: Switch(value: notifyOverdue, onChanged: onNotifyOverdueChanged),
+        ),
+        const Divider(),
+        _SettingRow(
+          label: 'Alteração de status',
+          description: 'Notifica quando o status de uma tarefa for alterado',
+          control: Switch(value: notifyStatusChange, onChanged: onNotifyStatusChangeChanged),
+        ),
+        const Divider(),
+        _SettingRow(
+          label: 'Lembretes diários',
+          description: 'Envia um resumo das tarefas do dia pela manhã',
+          control: Switch(value: notifyReminder, onChanged: onNotifyReminderChanged),
+        ),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: saving ? null : onSave,
+            child: saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Salvar alterações'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AboutSection extends StatelessWidget {
+  const _AboutSection({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _SectionHeader(title: 'Informações do Aplicativo'),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Expanded(child: _InfoItem(label: 'Versão', value: '1.0.0-beta')),
+            Expanded(child: _InfoItem(label: 'Ambiente', value: kDebugMode ? 'Desenvolvimento' : 'Produção')),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Expanded(child: _InfoItem(label: 'Última atualização', value: 'Julho de 2026')),
+            Expanded(child: _InfoItem(label: 'Tema ativo', value: isDark ? 'Escuro' : 'Claro')),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ThemeSegmentedControl extends StatelessWidget {
+  const _ThemeSegmentedControl({required this.isDark, required this.onChanged});
+
+  final bool isDark;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ThemeOption(icon: Icons.wb_sunny_outlined, label: 'Claro', selected: !isDark, onTap: () => onChanged(false)),
+          _ThemeOption(icon: Icons.nightlight_outlined, label: 'Escuro', selected: isDark, onTap: () => onChanged(true)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  const _ThemeOption({required this.icon, required this.label, required this.selected, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Material(
+      color: selected ? theme.cardTheme.color ?? colorScheme.surface : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      elevation: selected ? 1 : 0,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingRow extends StatelessWidget {
+  const _SettingRow({required this.label, required this.description, required this.control});
+
+  final String label;
+  final String description;
+  final Widget control;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          control,
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoItem extends StatelessWidget {
+  const _InfoItem({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
 }

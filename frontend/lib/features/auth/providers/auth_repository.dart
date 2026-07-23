@@ -76,6 +76,19 @@ class AuthRepository {
     });
   }
 
+  Future<User> updateProfile({String? name, String? email}) {
+    return guardApiCall(() async {
+      final response = await _dio.patch<Map<String, dynamic>>(
+        '/users/me',
+        data: {
+          if (name != null) 'name': name,
+          if (email != null) 'email': email,
+        },
+      );
+      return User.fromJson(response.data!);
+    });
+  }
+
   /// Chamado uma vez no boot do app: se ja existir um access token salvo de
   /// uma sessao anterior, confirma que ele ainda vale buscando o usuario
   /// (`GET /users/me`) — se o token estiver invalido/expirado (401), o

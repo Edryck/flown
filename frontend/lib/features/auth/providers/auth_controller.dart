@@ -42,4 +42,27 @@ class AuthController extends _$AuthController {
     await ref.read(authRepositoryProvider).logout();
     state = const AsyncData(null);
   }
+
+  Future<void> updateProfile({String? name, String? email}) async {
+    final updated = await ref.read(authRepositoryProvider).updateProfile(name: name, email: email);
+    state = AsyncData(updated);
+  }
+
+  /// Atalho SÓ de desenvolvimento: entra como o usuário fixo que o backend
+  /// injeta quando `SKIP_AUTH=true` (`auth.middleware.ts`), sem chamar
+  /// `/auth/login` nem guardar token nenhum — o interceptor simplesmente não
+  /// manda `Authorization`, e o backend nem confere isso com SKIP_AUTH ligado.
+  /// Só deve aparecer na UI em debug (ver login_screen.dart); o método em si
+  /// não faz mal nenhum se chamado fora disso, só fica sem uso.
+  Future<void> devBypass() async {
+    state = AsyncData(
+      User(
+        id: 'dev-user',
+        name: 'Dev User',
+        email: 'dev@flown.local',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
 }
