@@ -40,12 +40,15 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   Color statusContainerColorAt(int index) =>
       statusPaletteContainer[index % statusPaletteContainer.length];
 
+  // Valores identicos aos de --high-priority/--medium-priority/--low-priority
+  // (e as variantes -light) do theme.css do prototipo React — fidelidade de
+  // verdade com a paleta original, nao uma aproximacao.
   static const light = AppSemanticColors(
-    priorityHigh: Color(0xFFB3261E),
+    priorityHigh: Color(0xFFD97373),
     priorityHighContainer: Color(0xFFFDE8E8),
-    priorityMedium: Color(0xFFB2560D),
+    priorityMedium: Color(0xFFE09860),
     priorityMediumContainer: Color(0xFFFEF0E5),
-    priorityLow: Color(0xFF2E7D51),
+    priorityLow: Color(0xFF6BB88F),
     priorityLowContainer: Color(0xFFE6F7ED),
     statusPalette: [
       Color(0xFF5A6978),

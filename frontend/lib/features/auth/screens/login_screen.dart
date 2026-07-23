@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -56,76 +57,89 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text('Flown', style: Theme.of(context).textTheme.headlineMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    isRegister ? 'Criar uma conta' : 'Entrar na sua conta',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  if (isRegister) ...[
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Flown', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 8),
+                    Text(
+                      isRegister ? 'Criar uma conta' : 'Entrar na sua conta',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 24),
+                    if (isRegister) ...[
+                      TextFormField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(labelText: 'Nome'),
+                        validator: (value) =>
+                            (value == null || value.trim().length < 2) ? 'Nome muito curto' : null,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'Nome'),
+                      controller: _emailController,
+                      decoration: const InputDecoration(labelText: 'E-mail'),
+                      keyboardType: TextInputType.emailAddress,
                       validator: (value) =>
-                          (value == null || value.trim().length < 2) ? 'Nome muito curto' : null,
+                          (value == null || !value.contains('@')) ? 'E-mail inválido' : null,
                     ),
                     const SizedBox(height: 12),
-                  ],
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(labelText: 'E-mail'),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) =>
-                        (value == null || !value.contains('@')) ? 'E-mail inválido' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(labelText: 'Senha'),
-                    obscureText: true,
-                    validator: (value) =>
-                        (value == null || value.length < 8) ? 'Mínimo de 8 caracteres' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  if (authState.hasError)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: const InputDecoration(labelText: 'Senha'),
+                      obscureText: true,
+                      validator: (value) =>
+                          (value == null || value.length < 8) ? 'Mínimo de 8 caracteres' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    if (authState.hasError)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          authState.error.toString(),
+                          style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        ),
+                      ),
+                    FilledButton(
+                      onPressed: isLoading ? null : _submit,
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(isRegister ? 'Criar conta' : 'Entrar'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: isLoading
+                          ? null
+                          : () => setState(() {
+                                _mode = isRegister ? _AuthMode.login : _AuthMode.register;
+                              }),
                       child: Text(
-                        authState.error.toString(),
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        isRegister ? 'Já tenho conta — entrar' : 'Não tenho conta — criar',
                       ),
                     ),
-                  FilledButton(
-                    onPressed: isLoading ? null : _submit,
-                    child: isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(isRegister ? 'Criar conta' : 'Entrar'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: isLoading
-                        ? null
-                        : () => setState(() {
-                              _mode = isRegister ? _AuthMode.login : _AuthMode.register;
-                            }),
-                    child: Text(
-                      isRegister ? 'Já tenho conta — entrar' : 'Não tenho conta — criar',
-                    ),
-                  ),
-                ],
+                    if (kDebugMode) ...[
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      OutlinedButton(
+                        onPressed: isLoading
+                            ? null
+                            : () => ref.read(authControllerProvider.notifier).devBypass(),
+                        child: const Text('Entrar sem login (dev, SKIP_AUTH)'),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),

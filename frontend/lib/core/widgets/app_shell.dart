@@ -1,49 +1,53 @@
 import 'package:flutter/material.dart';
 
-/// Casca comum das telas autenticadas — navegacao lateral (desktop-first,
-/// CLAUDE.md: "Plataformas: Desktop -> Web") + o conteudo da rota atual.
-/// Equivalente ao `TopNavBar` + `RootLayout` do protototipo React, mas sem
-/// copiar a estrutura dele — as rotas aqui sao as reais do backend, nao as
-/// de demo do protótipo (ver docs/prototype/00-overview.md).
+import '../../features/notes/widgets/note_form_dialog.dart';
+import '../../features/projects/widgets/project_form_dialog.dart';
+import '../../features/tasks/widgets/task_form_dialog.dart';
+import 'global_floating_action_button.dart';
+import 'top_nav_bar.dart';
+
+/// Casca comum das telas autenticadas — tradução fiel do `RootLayout` do
+/// protótipo (`routes.tsx`): `TopNavBar` fixo no topo + conteúdo da rota
+/// atual + `GlobalFloatingActionButton` flutuante no canto inferior
+/// direito. Ver docs/prototype/00-overview.md e
+/// docs/prototype/components/{top-nav-bar,global-floating-action-button}.md.
+///
+/// A única rota do protótipo que NÃO usa esse layout é `/focus` (tela cheia
+/// imersiva, sem TopNavBar/FAB) — por isso `/focus` fica fora do
+/// `ShellRoute` em `app_router.dart`, igual à divisão de `routes.tsx`.
 class AppShell extends StatelessWidget {
-  const AppShell({super.key, required this.currentPath, required this.onDestinationSelected, required this.child});
+  const AppShell({
+    super.key,
+    required this.currentPath,
+    required this.onDestinationSelected,
+    required this.child,
+  });
 
   final String currentPath;
   final ValueChanged<String> onDestinationSelected;
   final Widget child;
 
-  static const _destinations = [
-    (path: '/dashboard', icon: Icons.dashboard_outlined, label: 'Painel'),
-    (path: '/projects', icon: Icons.folder_outlined, label: 'Projetos'),
-    (path: '/tasks', icon: Icons.check_box_outlined, label: 'Tarefas'),
-    (path: '/notes', icon: Icons.note_outlined, label: 'Anotações'),
-    (path: '/focus', icon: Icons.timer_outlined, label: 'Foco'),
-    (path: '/search', icon: Icons.search_outlined, label: 'Busca'),
-    (path: '/trash', icon: Icons.delete_outline, label: 'Lixeira'),
-    (path: '/settings', icon: Icons.settings_outlined, label: 'Configurações'),
-  ];
-
-  int get _selectedIndex {
-    final index = _destinations.indexWhere((d) => currentPath.startsWith(d.path));
-    return index == -1 ? 0 : index;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Row(
+      body: Stack(
         children: [
-          NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) => onDestinationSelected(_destinations[index].path),
-            labelType: NavigationRailLabelType.all,
-            destinations: [
-              for (final d in _destinations)
-                NavigationRailDestination(icon: Icon(d.icon), label: Text(d.label)),
+          Column(
+            children: [
+              TopNavBar(currentPath: currentPath, onNavigate: onDestinationSelected),
+              Expanded(child: child),
             ],
           ),
-          const VerticalDivider(width: 1),
-          Expanded(child: child),
+          Positioned(
+            bottom: 24,
+            right: 24,
+            child: GlobalFloatingActionButton(
+              currentPath: currentPath,
+              onCreateTask: () => showTaskFormDialog(context),
+              onCreateProject: () => showProjectFormDialog(context),
+              onCreateNote: () => showNoteFormDialog(context),
+            ),
+          ),
         ],
       ),
     );
