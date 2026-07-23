@@ -1,6 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/notes/widgets/note_form_dialog.dart';
+import '../../features/projects/widgets/project_form_dialog.dart';
+import '../../features/search/providers/search_repository.dart';
+import '../../features/tasks/widgets/task_form_dialog.dart';
+import '../models/note.dart';
+import '../models/project.dart';
+import '../models/task.dart';
 import '../theme/theme_mode_provider.dart';
 
 /// Cabeçalho fixo do app — tradução de TopNavBar.tsx
@@ -8,9 +17,16 @@ import '../theme/theme_mode_provider.dart';
 /// busca global, atalho de configurações, toggle de tema.
 ///
 /// Diferenças deliberadas do protótipo:
-///   - "Busca" aqui é a própria busca global já ligada à rota real
-///     (`/search`), em vez de decorativa como no protótipo (ver
-///     docs/prototype/00-overview.md);
+///   - "Busca" é busca global de verdade (`GET /search?q=`, `SearchRepository`),
+///     não decorativa como no protótipo (docs/prototype/00-overview.md) — mas
+///     também não é mais uma rota/tela própria: os resultados aparecem num
+///     dropdown ancorado no próprio campo (`OverlayPortal` +
+///     `CompositedTransformFollower`), igual à ideia de "busca global na
+///     navbar" pedida — clicar num resultado navega pra tela certa e já abre
+///     o item pra edição no modal correspondente. Fechar ao clicar fora usa
+///     `TapRegion` com `groupId`, mesmo mecanismo de
+///     `GlobalFloatingActionButton` (mas precisa de `groupId` aqui porque o
+///     painel de resultados mora na `Overlay`, fora da subárvore do campo);
 ///   - "Lixeira" não é aba — mora dentro de Configurações
 ///     (`SettingsScreen`), já que o protótipo não modela lixeira em lugar
 ///     nenhum e não tem essa rota entre as 6 abas originais;
@@ -31,7 +47,16 @@ class TopNavBar extends ConsumerStatefulWidget {
 }
 
 class _TopNavBarState extends ConsumerState<TopNavBar> {
+  static const _searchFieldWidth = 256.0;
+  static const _searchPanelWidth = 340.0;
+  static const _searchGroupId = 'top-nav-global-search';
+
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+  final _searchLayerLink = LayerLink();
+  final _searchOverlayController = OverlayPortalController();
+  Timer? _debounce;
+  Future<SearchResults>? _searchFuture;
 
   static const _tabs = [
     (path: '/dashboard', label: 'Painel'),
@@ -44,7 +69,9 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -53,9 +80,55 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
     return widget.currentPath == tabPath || widget.currentPath.startsWith(tabPath);
   }
 
-  void _submitSearch(String query) {
-    final trimmed = query.trim();
-    widget.onNavigate(trimmed.isEmpty ? '/search' : '/search?q=$trimmed');
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    final query = value.trim();
+    if (query.isEmpty) {
+      setState(() => _searchFuture = null);
+      _searchOverlayController.hide();
+      return;
+    }
+    // Debounce de propósito — sem isso, cada tecla dispara uma chamada a
+    // `GET /search` (nenhum cancelamento de request in-flight no
+    // `SearchRepository`, então respostas fora de ordem poderiam sobrescrever
+    // o resultado mais recente).
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      // Bloco (não `=>`) de propósito — uma arrow function aqui retornaria a
+      // própria `Future` de `.search()` como valor do closure, e o Flutter
+      // recusa um callback de `setState` que devolve uma `Future` (era
+      // exatamente isso que quebrava a busca: `DartError: setState()
+      // callback argument returned a Future`).
+      setState(() {
+        _searchFuture = ref.read(searchRepositoryProvider).search(query);
+      });
+      _searchOverlayController.show();
+    });
+  }
+
+  void _closeSearch() {
+    _debounce?.cancel();
+    _searchOverlayController.hide();
+    _searchController.clear();
+    setState(() => _searchFuture = null);
+  }
+
+  void _openTask(Task task) {
+    _closeSearch();
+    widget.onNavigate('/tasks');
+    showTaskFormDialog(context, task: task);
+  }
+
+  void _openProject(Project project) {
+    _closeSearch();
+    widget.onNavigate('/projects');
+    showProjectFormDialog(context, project: project);
+  }
+
+  void _openNote(Note note) {
+    _closeSearch();
+    widget.onNavigate('/notes');
+    showNoteFormDialog(context, note: note);
   }
 
   @override
@@ -118,21 +191,59 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
                 ),
               ),
               const SizedBox(width: 12),
-              SizedBox(
-                width: 256,
-                height: 36,
-                child: TextField(
-                  controller: _searchController,
-                  onSubmitted: _submitSearch,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    prefixIcon: const Icon(Icons.search, size: 18),
-                    hintText: 'Pesquisar tarefas, anotações...',
-                    filled: true,
-                    fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
+              CompositedTransformTarget(
+                link: _searchLayerLink,
+                child: TapRegion(
+                  groupId: _searchGroupId,
+                  onTapOutside: (_) {
+                    if (_searchFuture != null) _closeSearch();
+                  },
+                  child: OverlayPortal(
+                    controller: _searchOverlayController,
+                    overlayChildBuilder: (context) => CompositedTransformFollower(
+                      link: _searchLayerLink,
+                      showWhenUnlinked: false,
+                      targetAnchor: Alignment.bottomLeft,
+                      offset: const Offset(-(_searchPanelWidth - _searchFieldWidth), 8),
+                      child: TapRegion(
+                        groupId: _searchGroupId,
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: _SearchResultsPanel(
+                            width: _searchPanelWidth,
+                            future: _searchFuture,
+                            onTapTask: _openTask,
+                            onTapProject: _openProject,
+                            onTapNote: _openNote,
+                          ),
+                        ),
+                      ),
+                    ),
+                    child: SizedBox(
+                      width: _searchFieldWidth,
+                      height: 36,
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocusNode,
+                        onChanged: _onSearchChanged,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          suffixIcon: _searchController.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  icon: const Icon(Icons.close, size: 16),
+                                  onPressed: _closeSearch,
+                                ),
+                          hintText: 'Buscar tarefas, projetos, anotações...',
+                          filled: true,
+                          fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -185,6 +296,186 @@ class _NavTab extends StatelessWidget {
               color: active ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dropdown de resultados da busca global — 3 seções (Projetos/Tarefas/
+/// Anotações), só as que tiverem resultado. `future == null` (campo vazio)
+/// não deveria nem chegar a renderizar (controller some antes disso), mas o
+/// guard evita flash de conteúdo obsoleto no frame de transição.
+class _SearchResultsPanel extends StatelessWidget {
+  const _SearchResultsPanel({
+    required this.width,
+    required this.future,
+    required this.onTapTask,
+    required this.onTapProject,
+    required this.onTapNote,
+  });
+
+  final double width;
+  final Future<SearchResults>? future;
+  final ValueChanged<Task> onTapTask;
+  final ValueChanged<Project> onTapProject;
+  final ValueChanged<Note> onTapNote;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Material(
+      elevation: 6,
+      borderRadius: BorderRadius.circular(8),
+      color: theme.cardTheme.color ?? colorScheme.surface,
+      child: Container(
+        width: width,
+        constraints: const BoxConstraints(maxHeight: 420),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: FutureBuilder<SearchResults>(
+          future: future,
+          builder: (context, snapshot) {
+            if (future == null) return const SizedBox.shrink();
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+              );
+            }
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Erro ao buscar: ${snapshot.error}',
+                  style: TextStyle(color: colorScheme.error, fontSize: 13),
+                ),
+              );
+            }
+
+            final results = snapshot.data;
+            if (results == null || results.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Nenhum resultado encontrado', style: TextStyle(color: colorScheme.onSurfaceVariant)),
+              );
+            }
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (results.projects.isNotEmpty)
+                    _SearchSection(
+                      title: 'Projetos',
+                      children: [
+                        for (final project in results.projects)
+                          _SearchResultTile(
+                            icon: Icons.folder_outlined,
+                            title: project.name,
+                            onTap: () => onTapProject(project),
+                          ),
+                      ],
+                    ),
+                  if (results.tasks.isNotEmpty)
+                    _SearchSection(
+                      title: 'Tarefas',
+                      children: [
+                        for (final task in results.tasks)
+                          _SearchResultTile(
+                            icon: Icons.check_box_outlined,
+                            title: task.title,
+                            subtitle: task.status,
+                            onTap: () => onTapTask(task),
+                          ),
+                      ],
+                    ),
+                  if (results.notes.isNotEmpty)
+                    _SearchSection(
+                      title: 'Anotações',
+                      children: [
+                        for (final note in results.notes)
+                          _SearchResultTile(
+                            icon: Icons.description_outlined,
+                            title: note.title,
+                            onTap: () => onTapNote(note),
+                          ),
+                      ],
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchSection extends StatelessWidget {
+  const _SearchSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        ...children,
+      ],
+    );
+  }
+}
+
+class _SearchResultTile extends StatelessWidget {
+  const _SearchResultTile({required this.icon, required this.title, this.subtitle, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
+            const SizedBox(width: 10),
+            Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis)),
+            if (subtitle != null) ...[
+              const SizedBox(width: 8),
+              Text(subtitle!, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+            ],
+          ],
         ),
       ),
     );
