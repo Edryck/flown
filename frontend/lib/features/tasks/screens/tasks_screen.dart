@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/task.dart';
+import '../../../core/models/task_priority.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../../projects/providers/project_type_repository.dart';
 import '../providers/task_list_controller.dart';
 import '../utils/task_status_colors.dart';
+import '../widgets/task_filter_dialog.dart';
 import '../widgets/task_form_dialog.dart';
 import '../widgets/tasks_calendar_view.dart';
 import '../widgets/tasks_kanban_view.dart';
@@ -13,12 +15,30 @@ import '../widgets/tasks_table_view.dart';
 
 enum _TasksView { table, kanban, calendar }
 
+enum _TaskSort { priority, dueDate, title, createdAt }
+
+const _taskSortLabels = {
+  _TaskSort.priority: 'Prioridade',
+  _TaskSort.dueDate: 'Prazo',
+  _TaskSort.title: 'Título (A-Z)',
+  _TaskSort.createdAt: 'Criado recentemente',
+};
+
+const _priorityOrder = {TaskPriority.high: 0, TaskPriority.medium: 1, TaskPriority.low: 2};
+
 /// Tela central de gerenciamento de tarefas — tradução fiel de Tasks.tsx
 /// (docs/prototype/screens/tasks.md): cabeçalho, barra de ferramentas
-/// (troca de view + busca + Filtrar/Ordenar decorativos) e delega o
-/// conteúdo pra uma das 3 views. Dados vêm do backend real
-/// (`TaskListController`), não do mock — a busca continua client-side
-/// (mesmo padrão do protótipo), só a fonte da lista mudou.
+/// (troca de view + busca + Filtrar/Ordenar) e delega o conteúdo pra uma das
+/// 3 views. Dados vêm do backend real (`TaskListController`), não do mock —
+/// a busca continua client-side (mesmo padrão do protótipo), só a fonte da
+/// lista mudou.
+///
+/// "Filtrar" (status/prioridade/atrasadas) e "Ordenar" (prioridade/prazo/
+/// título/criação) eram botões decorativos tanto no protótipo (sem
+/// `onClick`) quanto na primeira tradução — agora filtram/ordenam de
+/// verdade o modo Tabela/Kanban (`_applyFilters`/`_applySort`). O modo
+/// Calendário continua recebendo a lista crua, igual ao comportamento
+/// anterior — fora do pedido original (só "modo lista").
 class TasksScreen extends ConsumerStatefulWidget {
   const TasksScreen({super.key});
 
@@ -30,6 +50,8 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   _TasksView _view = _TasksView.table;
+  TaskFilterSelection _filters = const TaskFilterSelection();
+  _TaskSort _sort = _TaskSort.priority;
 
   @override
   void dispose() {
@@ -37,15 +59,84 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     super.dispose();
   }
 
-  List<Task> _filter(List<Task> tasks, Map<String, String> projectNamesById) {
-    if (_searchQuery.isEmpty) return tasks;
-    final query = _searchQuery.toLowerCase();
-    return tasks.where((task) {
-      final projectName = (projectNamesById[task.projectId] ?? '').toLowerCase();
-      return task.title.toLowerCase().contains(query) ||
-          (task.description ?? '').toLowerCase().contains(query) ||
-          projectName.contains(query);
-    }).toList();
+  bool _isOverdue(Task task) {
+    if (task.completedAt != null || task.dueDate == null) return false;
+    final today = DateTime.now();
+    final dueDate = task.dueDate!;
+    return DateTime(dueDate.year, dueDate.month, dueDate.day)
+        .isBefore(DateTime(today.year, today.month, today.day));
+  }
+
+  List<Task> _applyFilters(List<Task> tasks, Map<String, String> projectNamesById) {
+    var result = tasks;
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      result = result.where((task) {
+        final projectName = (projectNamesById[task.projectId] ?? '').toLowerCase();
+        return task.title.toLowerCase().contains(query) ||
+            (task.description ?? '').toLowerCase().contains(query) ||
+            projectName.contains(query);
+      }).toList();
+    }
+    if (_filters.statuses.isNotEmpty) {
+      result = result.where((t) => _filters.statuses.contains(t.status)).toList();
+    }
+    if (_filters.priorities.isNotEmpty) {
+      result = result.where((t) => _filters.priorities.contains(t.priority)).toList();
+    }
+    if (_filters.onlyOverdue) {
+      result = result.where(_isOverdue).toList();
+    }
+    return result;
+  }
+
+  List<Task> _applySort(List<Task> tasks) {
+    final sorted = [...tasks];
+    switch (_sort) {
+      case _TaskSort.priority:
+        sorted.sort((a, b) => _priorityOrder[a.priority]!.compareTo(_priorityOrder[b.priority]!));
+      case _TaskSort.dueDate:
+        sorted.sort((a, b) {
+          if (a.dueDate == null && b.dueDate == null) return 0;
+          if (a.dueDate == null) return 1;
+          if (b.dueDate == null) return -1;
+          return a.dueDate!.compareTo(b.dueDate!);
+        });
+      case _TaskSort.title:
+        sorted.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+      case _TaskSort.createdAt:
+        sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    return sorted;
+  }
+
+  Future<void> _openFilterDialog(List<String> statusOptions) async {
+    final result = await showTaskFilterDialog(context, statusOptions: statusOptions, initial: _filters);
+    if (result != null) setState(() => _filters = result);
+  }
+
+  Future<void> _openSortMenu(BuildContext buttonContext) async {
+    final button = buttonContext.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(buttonContext).context.findRenderObject() as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final selected = await showMenu<_TaskSort>(
+      context: buttonContext,
+      position: position,
+      items: [
+        for (final sort in _TaskSort.values)
+          PopupMenuItem(
+            value: sort,
+            child: Text(_taskSortLabels[sort]!),
+          ),
+      ],
+    );
+    if (selected != null) setState(() => _sort = selected);
   }
 
   Future<void> _confirmDelete(Task task) async {
@@ -73,6 +164,10 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     final taskListAsync = ref.watch(taskListControllerProvider);
     final projectListAsync = ref.watch(projectListControllerProvider);
     final projectTypeListAsync = ref.watch(projectTypeListProvider);
+    final statusOrder = resolveStatusOrder(
+      projectTypeListAsync.valueOrNull ?? const [],
+      taskListAsync.valueOrNull ?? const [],
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
@@ -130,15 +225,21 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 ),
                 const Spacer(),
                 OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.filter_list, size: 16),
-                  label: const Text('Filtrar'),
+                  onPressed: () => _openFilterDialog(statusOrder),
+                  icon: Icon(
+                    Icons.filter_list,
+                    size: 16,
+                    color: _filters.activeCount > 0 ? theme.colorScheme.primary : null,
+                  ),
+                  label: Text(_filters.activeCount > 0 ? 'Filtrar (${_filters.activeCount})' : 'Filtrar'),
                 ),
                 const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.sort, size: 16),
-                  label: const Text('Ordenar'),
+                Builder(
+                  builder: (buttonContext) => OutlinedButton.icon(
+                    onPressed: () => _openSortMenu(buttonContext),
+                    icon: const Icon(Icons.sort, size: 16),
+                    label: Text('Ordenar: ${_taskSortLabels[_sort]}'),
+                  ),
                 ),
               ],
             ),
@@ -157,8 +258,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
               final projects = projectListAsync.valueOrNull ?? const [];
               final projectsById = {for (final p in projects) p.id: p};
               final projectNamesById = {for (final p in projects) p.id: p.name};
-              final filtered = _filter(tasks, projectNamesById);
-              final statusOrder = resolveStatusOrder(projectTypeListAsync.valueOrNull ?? const [], tasks);
+              final filtered = _applySort(_applyFilters(tasks, projectNamesById));
 
               return switch (_view) {
                 _TasksView.table => TasksTableView(
