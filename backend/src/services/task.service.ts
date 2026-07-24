@@ -37,6 +37,43 @@ type TaskInput = {
 // como a convencao de "task concluida" pro Dashboard (log 09).
 export const COMPLETED_STATUS = "Done";
 
+// Progresso implicito por status, usado so quando a task NAO tem subtasks
+// (com subtasks, o progresso vem da % delas concluidas — ver
+// computeProgressFromSubtasks) e o caller nao mandou um `progress` proprio
+// na mesma requisicao (form com checklist, por exemplo, sempre manda o dele
+// e tem prioridade). Cobre so os status dos ProjectType seedados
+// (backend/prisma/seed.ts) — um status customizado sem entrada aqui nao
+// altera o progresso.
+const STATUS_PROGRESS: Record<string, number> = {
+  Backlog: 0,
+  Todo: 0,
+  "In Progress": 50,
+  "In Review": 75,
+  Done: 100,
+};
+
+async function computeProgressFromSubtasks(parentId: string, userId: string): Promise<number | null> {
+  const subtasks = await findSubtasks(parentId, userId);
+  if (subtasks.length === 0) return null;
+  const done = subtasks.filter((t) => t.status === COMPLETED_STATUS).length;
+  return Math.round((done / subtasks.length) * 100);
+}
+
+/// Progresso implicito quando o caller nao mandou um valor proprio: prioriza
+/// subtasks reais (% delas concluidas) sobre o mapeamento por status — uma
+/// task com subtasks tem uma medida de progresso mais precisa que "In
+/// Progress = 50%".
+async function resolveImplicitProgress(
+  taskId: string,
+  userId: string,
+  status: string | undefined
+): Promise<number | undefined> {
+  const subtaskProgress = await computeProgressFromSubtasks(taskId, userId);
+  if (subtaskProgress !== null) return subtaskProgress;
+  if (status !== undefined) return STATUS_PROGRESS[status];
+  return undefined;
+}
+
 async function assertProjectOwnership(projectId: string, userId: string) {
   const project = await findProjectById(projectId, userId);
   if (!project) {
@@ -113,17 +150,40 @@ export async function update(id: string, userId: string, data: Partial<TaskInput
   }
 
   let completedAt: Date | null | undefined;
-  if (data.status && data.status !== task.status) {
+  const statusChanged = Boolean(data.status && data.status !== task.status);
+  if (statusChanged) {
     completedAt = data.status === COMPLETED_STATUS ? new Date() : null;
   }
 
+  // So calcula quando o caller nao mandou um `progress` proprio na mesma
+  // requisicao (form com checklist sempre manda o dele, e tem prioridade) —
+  // sem isso, uma task sem subtasks/checklist ficava com `completedAt`
+  // setado mas a barra de progresso parada no valor antigo (bug reportado:
+  // só tasks com subtasks/checklist atualizavam o progresso ao mudar de
+  // status).
+  const progress =
+    data.progress !== undefined
+      ? data.progress
+      : (await resolveImplicitProgress(id, userId, data.status)) ?? undefined;
+
   const updated = await updateTask(id, userId, {
     ...data,
+    ...(progress !== undefined ? { progress } : {}),
     ...(completedAt !== undefined ? { completedAt } : {}),
   });
   if (!updated) {
     throw new AppError(404, "Task not found");
   }
+
+  // Se essa task e subtask de outra, o progresso do pai (baseado na % de
+  // subtasks concluidas) pode ter mudado — recalcula e persiste.
+  if (updated.parentTaskId) {
+    const parentProgress = await computeProgressFromSubtasks(updated.parentTaskId, userId);
+    if (parentProgress !== null) {
+      await updateTask(updated.parentTaskId, userId, { progress: parentProgress });
+    }
+  }
+
   return updated;
 }
 
