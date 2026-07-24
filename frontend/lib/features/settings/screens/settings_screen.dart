@@ -319,17 +319,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 24),
             Container(
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: theme.cardTheme.color ?? theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: theme.colorScheme.outlineVariant),
               ),
-              child: ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: const Text('Lixeira'),
-                subtitle: const Text('Projetos, tarefas e anotações excluídos'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.go('/trash'),
+              // `ListTile` pinta o splash de tinta no `Material` ancestral mais
+              // próximo — sem isso, o `Container` decorado (com `color`) acima
+              // escondia o efeito de toque (aviso do framework em runtime).
+              child: Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('Lixeira'),
+                  subtitle: const Text('Projetos, tarefas e anotações excluídos'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.go('/trash'),
+                ),
               ),
             ),
             const SizedBox(height: 32),
