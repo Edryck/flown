@@ -158,22 +158,22 @@ DashboardStatsRepository dashboardStatsRepository(DashboardStatsRepositoryRef re
 @riverpod
 Future<DashboardStats> dashboardStats(DashboardStatsRef ref) => ref.watch(dashboardStatsRepositoryProvider).getStats();
 
-/// Quantos dias tem o "último ano" contando pra trás a partir de [from] —
-/// 366 se um 29 de fevereiro cair dentro da janela, 365 caso contrário.
-/// Mais preciso que checar `isLeapYear(from.year)`: um período de 12 meses
-/// que atravessa a virada do ano pode incluir um 29/02 do ano anterior
-/// mesmo com o ano atual não sendo bissexto.
-int daysInTrailingYear(DateTime from) {
-  final oneYearAgo = DateTime(from.year - 1, from.month, from.day);
-  return from.difference(oneYearAgo).inDays;
+/// Quantos dias se passaram desde 1º de janeiro do ano de [from] até [from],
+/// inclusive — janela usada pro heatmap anual, que mostra o ano corrente
+/// inteiro (1º de janeiro a 31 de dezembro), não um trailing window de 365
+/// dias terminando hoje (isso fazia o heatmap "começar" no dia atual em vez
+/// de janeiro, sem sentido fora de dezembro).
+int daysSinceStartOfYear(DateTime from) {
+  final startOfYear = DateTime(from.year, 1, 1);
+  return DateTime(from.year, from.month, from.day).difference(startOfYear).inDays + 1;
 }
 
-/// Busca separada (janela de ~1 ano, contando bissextos) só pro heatmap
+/// Busca separada (desde 1º de janeiro do ano corrente) só pro heatmap
 /// anual (`CompletionHeatmap`) e pro gráfico mensal derivado dele — os
 /// outros números da tela (taxa de conclusão, cards) continuam na janela
 /// padrão de `dashboardStatsProvider` (90 dias, "desempenho recente").
 @riverpod
 Future<DashboardStats> annualDashboardStats(AnnualDashboardStatsRef ref) {
-  final days = daysInTrailingYear(DateTime.now());
+  final days = daysSinceStartOfYear(DateTime.now());
   return ref.watch(dashboardStatsRepositoryProvider).getStats(days: days);
 }

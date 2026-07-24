@@ -7,11 +7,17 @@ import '../providers/dashboard_stats_repository.dart';
 /// não existe no protótipo (`Statistics.tsx` não tem nada parecido), é uma
 /// visualização nova pedida pra aproveitar `productivity.heatmap`, dado
 /// real que o backend já calcula e o protótipo nunca usou.
+///
+/// Sempre o ano calendário corrente inteiro (1º de janeiro a 31 de
+/// dezembro) — não uma janela móvel de N dias terminando hoje. Antes disso,
+/// em qualquer mês que não dezembro o último quadradinho (hoje) ficava bem
+/// no meio/início da grade, sem nenhum eixo temporal reconhecível; dias
+/// antes de janeiro (sobra do alinhamento de semana) e depois de hoje
+/// (futuro) ficam em branco.
 class CompletionHeatmap extends StatelessWidget {
-  const CompletionHeatmap({super.key, required this.entries, required this.windowDays});
+  const CompletionHeatmap({super.key, required this.entries});
 
   final List<HeatmapEntry> entries;
-  final int windowDays;
 
   @override
   Widget build(BuildContext context) {
@@ -23,9 +29,10 @@ class CompletionHeatmap extends StatelessWidget {
     };
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
-    final start = todayDate.subtract(Duration(days: windowDays - 1));
-    final alignedStart = start.subtract(Duration(days: start.weekday % 7));
-    final totalDays = todayDate.difference(alignedStart).inDays + 1;
+    final yearStart = DateTime(today.year, 1, 1);
+    final yearEnd = DateTime(today.year, 12, 31);
+    final alignedStart = yearStart.subtract(Duration(days: yearStart.weekday % 7));
+    final totalDays = yearEnd.difference(alignedStart).inDays + 1;
     final weeks = (totalDays / 7).ceil();
     final maxCount = entries.isEmpty ? 0 : entries.map((e) => e.count).reduce((a, b) => a > b ? a : b);
 
@@ -48,7 +55,7 @@ class CompletionHeatmap extends StatelessWidget {
                   Builder(
                     builder: (context) {
                       final date = alignedStart.add(Duration(days: w * 7 + d));
-                      if (date.isAfter(todayDate)) {
+                      if (date.isBefore(yearStart) || date.isAfter(yearEnd) || date.isAfter(todayDate)) {
                         return const SizedBox(width: 12, height: 12);
                       }
                       final count = countByDate[date] ?? 0;

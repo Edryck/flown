@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/semantic_colors.dart';
 import '../../../core/widgets/metric_card.dart';
+import '../../../core/widgets/screen_gradient_backdrop.dart';
 import '../../tasks/providers/task_list_controller.dart';
+import '../../tasks/utils/task_status_colors.dart';
 import '../providers/dashboard_stats_repository.dart';
 import '../utils/statistics_derivations.dart';
 import '../widgets/completion_heatmap.dart';
@@ -131,7 +133,9 @@ class _MetricsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ratePercent = (stats.productivity.completionRate.rate * 100).round();
-    final avgHours = stats.productivity.averageTimeToCompleteByPriority.values.whereType<double>().toList();
+    final avgHours = stats.productivity.averageTimeToCompleteByPriority.values
+        .whereType<double>()
+        .toList();
     final avgDaysLabel = avgHours.isEmpty
         ? '—'
         : '${(avgHours.reduce((a, b) => a + b) / avgHours.length / 24).toStringAsFixed(1)} dias';
@@ -139,28 +143,29 @@ class _MetricsRow extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 900 ? 4 : (constraints.maxWidth >= 500 ? 2 : 1);
+        final columns = constraints.maxWidth >= 900
+            ? 4
+            : (constraints.maxWidth >= 500 ? 2 : 1);
         return GridView.count(
           crossAxisCount: columns,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 16,
           crossAxisSpacing: 16,
-          childAspectRatio: 1.9,
+          childAspectRatio: 2.6,
           children: [
             MetricCard(
               title: 'Taxa de Conclusão',
               value: '$ratePercent%',
               icon: Icons.track_changes_outlined,
-              iconBackgroundColor: const Color(0xFFEBF8FF),
               iconColor: const Color(0xFF2B6CB0),
-              subtitle: '${stats.productivity.completionRate.completed} de ${stats.productivity.completionRate.created} tarefas',
+              subtitle:
+                  '${stats.productivity.completionRate.completed} de ${stats.productivity.completionRate.created} tarefas',
             ),
             MetricCard(
               title: 'Total Concluído',
               value: '${stats.productivity.completionRate.completed}',
               icon: Icons.emoji_events_outlined,
-              iconBackgroundColor: const Color(0xFFE6F7ED),
               iconColor: const Color(0xFF2E7D51),
               subtitle: 'Últimos ${stats.windowDays} dias',
             ),
@@ -168,7 +173,6 @@ class _MetricsRow extends StatelessWidget {
               title: 'Tempo Médio',
               value: avgDaysLabel,
               icon: Icons.hourglass_bottom_outlined,
-              iconBackgroundColor: const Color(0xFFFEF0E5),
               iconColor: const Color(0xFFB2560D),
               subtitle: 'Média entre prioridades com dados',
             ),
@@ -176,9 +180,9 @@ class _MetricsRow extends StatelessWidget {
               title: 'Pontuação de Produtividade',
               value: '$score',
               icon: Icons.insights_outlined,
-              iconBackgroundColor: const Color(0xFFEBE6F3),
               iconColor: const Color(0xFF7A5AA6),
-              subtitle: 'Sequência de ${stats.focus.streak} dia${stats.focus.streak == 1 ? '' : 's'}',
+              subtitle:
+                  'Sequência de ${stats.focus.streak} dia${stats.focus.streak == 1 ? '' : 's'}',
             ),
           ],
         );
@@ -188,7 +192,11 @@ class _MetricsRow extends StatelessWidget {
 }
 
 class _ChartCard extends StatelessWidget {
-  const _ChartCard({required this.title, required this.subtitle, required this.child});
+  const _ChartCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
 
   final String title;
   final String subtitle;
@@ -209,9 +217,19 @@ class _ChartCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: 20),
           child,
         ],
@@ -230,7 +248,10 @@ class _MonthlyBarChart extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (data.isEmpty) {
-      return const SizedBox(height: 260, child: Center(child: Text('Sem dados no período')));
+      return const SizedBox(
+        height: 260,
+        child: Center(child: Text('Sem dados no período')),
+      );
     }
 
     final maxCount = data.map((d) => d.count).reduce((a, b) => a > b ? a : b);
@@ -244,9 +265,15 @@ class _MonthlyBarChart extends StatelessWidget {
           gridData: const FlGridData(show: true, drawVerticalLine: false),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 32)),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(showTitles: true, reservedSize: 32),
+            ),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 // `interval: 1` de propósito — sem isso o fl_chart escolhe
@@ -258,10 +285,14 @@ class _MonthlyBarChart extends StatelessWidget {
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
                   final index = value.round();
-                  if (index < 0 || index >= data.length || index != value) return const SizedBox.shrink();
+                  if (index < 0 || index >= data.length || index != value)
+                    return const SizedBox.shrink();
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text(data[index].label, style: const TextStyle(fontSize: 12)),
+                    child: Text(
+                      data[index].label,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   );
                 },
               ),
@@ -276,7 +307,9 @@ class _MonthlyBarChart extends StatelessWidget {
                     toY: data[i].count.toDouble(),
                     color: colorScheme.primary,
                     width: 18,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(6),
+                    ),
                   ),
                 ],
               ),
@@ -297,7 +330,10 @@ class _StatusPieChart extends StatelessWidget {
     final semantic = context.semanticColors;
 
     if (byStatus.isEmpty) {
-      return const SizedBox(height: 260, child: Center(child: Text('Sem tarefas ainda')));
+      return const SizedBox(
+        height: 260,
+        child: Center(child: Text('Sem tarefas ainda')),
+      );
     }
 
     final entries = byStatus.entries.toList();
@@ -317,7 +353,11 @@ class _StatusPieChart extends StatelessWidget {
                     color: semantic.statusColorAt(i),
                     radius: 40,
                     title: '${entries[i].value}',
-                    titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                    titleStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
               ],
             ),
@@ -335,10 +375,16 @@ class _StatusPieChart extends StatelessWidget {
                   Container(
                     width: 10,
                     height: 10,
-                    decoration: BoxDecoration(color: semantic.statusColorAt(i), shape: BoxShape.circle),
+                    decoration: BoxDecoration(
+                      color: semantic.statusColorAt(i),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                   const SizedBox(width: 6),
-                  Text('${entries[i].key}: ${entries[i].value}', style: const TextStyle(fontSize: 13)),
+                  Text(
+                    '${statusLabelPtBr(entries[i].key)}: ${entries[i].value}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ],
               ),
           ],
@@ -379,9 +425,15 @@ class _WeeklyActivityChart extends StatelessWidget {
               gridData: const FlGridData(show: true, drawVerticalLine: false),
               borderData: FlBorderData(show: false),
               titlesData: FlTitlesData(
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 32)),
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: true, reservedSize: 32),
+                ),
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     // Mesmo motivo do `_MonthlyBarChart` — sem `interval:1`
@@ -391,26 +443,36 @@ class _WeeklyActivityChart extends StatelessWidget {
                     showTitles: true,
                     getTitlesWidget: (value, meta) {
                       final index = value.round();
-                      if (index < 0 || index >= data.length || index != value) return const SizedBox.shrink();
+                      if (index < 0 || index >= data.length || index != value)
+                        return const SizedBox.shrink();
                       return Padding(
                         padding: const EdgeInsets.only(top: 8),
-                        child: Text(data[index].dayLabel, style: const TextStyle(fontSize: 12)),
+                        child: Text(
+                          data[index].dayLabel,
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       );
                     },
                   ),
                 ),
               ),
               lineBarsData: [
-                _line([for (var i = 0; i < data.length; i++) FlSpot(i.toDouble(), data[i].todo.toDouble())], todoColor),
-                _line(
-                  [for (var i = 0; i < data.length; i++) FlSpot(i.toDouble(), data[i].inProgress.toDouble())],
-                  inProgressColor,
-                ),
-                _line(
-                  [for (var i = 0; i < data.length; i++) FlSpot(i.toDouble(), data[i].inReview.toDouble())],
-                  inReviewColor,
-                ),
-                _line([for (var i = 0; i < data.length; i++) FlSpot(i.toDouble(), data[i].done.toDouble())], doneColor),
+                _line([
+                  for (var i = 0; i < data.length; i++)
+                    FlSpot(i.toDouble(), data[i].todo.toDouble()),
+                ], todoColor),
+                _line([
+                  for (var i = 0; i < data.length; i++)
+                    FlSpot(i.toDouble(), data[i].inProgress.toDouble()),
+                ], inProgressColor),
+                _line([
+                  for (var i = 0; i < data.length; i++)
+                    FlSpot(i.toDouble(), data[i].inReview.toDouble()),
+                ], inReviewColor),
+                _line([
+                  for (var i = 0; i < data.length; i++)
+                    FlSpot(i.toDouble(), data[i].done.toDouble()),
+                ], doneColor),
               ],
             ),
           ),
@@ -453,7 +515,11 @@ class _LegendDot extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(fontSize: 13)),
       ],
@@ -470,7 +536,11 @@ class _InsightsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final semantic = context.semanticColors;
-    final insights = buildInsights(stats, positiveColor: semantic.priorityLow, warningColor: semantic.priorityHigh);
+    final insights = buildInsights(
+      stats,
+      positiveColor: semantic.priorityLow,
+      warningColor: semantic.priorityHigh,
+    );
 
     return Container(
       width: double.infinity,
@@ -483,7 +553,12 @@ class _InsightsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Insights & Recomendações', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            'Insights & Recomendações',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -495,7 +570,9 @@ class _InsightsPanel extends StatelessWidget {
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
                 childAspectRatio: 5,
-                children: [for (final insight in insights) _InsightCard(data: insight)],
+                children: [
+                  for (final insight in insights) _InsightCard(data: insight),
+                ],
               );
             },
           ),
@@ -527,7 +604,10 @@ class _InsightCard extends StatelessWidget {
           Container(
             width: 30,
             height: 30,
-            decoration: BoxDecoration(color: data.color, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: data.color,
+              shape: BoxShape.circle,
+            ),
             child: Icon(data.icon, size: 16, color: Colors.white),
           ),
           const SizedBox(width: 10),
@@ -538,14 +618,21 @@ class _InsightCard extends StatelessWidget {
               children: [
                 Text(
                   data.title,
-                  style: TextStyle(fontWeight: FontWeight.w600, color: data.color, fontSize: 13),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: data.color,
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   data.description,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontSize: 12),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
