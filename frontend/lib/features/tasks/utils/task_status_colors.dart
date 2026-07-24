@@ -23,3 +23,22 @@ List<String> resolveStatusOrder(Iterable<ProjectType> projectTypes, Iterable<Tas
   }
   return seen;
 }
+
+/// Tradução pra português dos status seedados (`ProjectType.availableStatus`
+/// dos tipos "software"/"general", `backend/prisma/seed.ts`) — só pra
+/// exibição (badges, legendas, dropdowns); o valor enviado/recebido da API
+/// continua em inglês, que é o que `ProjectType.availableStatus` valida. Um
+/// status customizado de um `ProjectType` futuro que não bata com nenhuma
+/// chave aqui aparece sem tradução (texto cru do backend) — mesma
+/// degradação graciosa que `StatusBadge` já tinha antes de traduzir.
+const statusLabelsPtBr = {
+  'Backlog': 'Pendente',
+  'Todo': 'A Fazer',
+  'In Progress': 'Em Andamento',
+  'In Review': 'Em Revisão',
+  'Blocked': 'Bloqueado',
+  'Done': 'Concluído',
+  'Cancelled': 'Cancelado',
+};
+
+String statusLabelPtBr(String status) => statusLabelsPtBr[status] ?? status;

@@ -6,6 +6,7 @@ import '../../../core/models/task.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../../core/widgets/priority_badge.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../utils/task_status_colors.dart';
 
 /// Tabela densa de tasks — tradução fiel de TasksTableView.tsx
 /// (docs/prototype/components/tasks-table-view.md): checkbox de seleção
@@ -186,7 +187,7 @@ class _TasksTableViewState extends State<TasksTableView> {
                 _cell(PriorityBadge(priority: task.priority)),
                 _cell(
                   StatusBadge(
-                    label: task.status,
+                    label: statusLabelPtBr(task.status),
                     colorIndex: widget.statusOrder.indexOf(task.status).clamp(0, widget.statusOrder.length - 1),
                   ),
                 ),

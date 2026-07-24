@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/task_priority.dart';
 import '../../../core/widgets/priority_badge.dart';
+import '../utils/task_status_colors.dart';
 
 /// Seleção atual de filtros da tela de Tasks — conjunto vazio em
 /// `statuses`/`priorities` significa "sem filtro" (mostra tudo), não "nada
@@ -72,7 +73,7 @@ class _TaskFilterDialogState extends State<_TaskFilterDialog> {
                 children: [
                   for (final status in widget.statusOptions)
                     FilterChip(
-                      label: Text(status),
+                      label: Text(statusLabelPtBr(status)),
                       selected: _statuses.contains(status),
                       onSelected: (selected) => setState(() {
                         if (selected) {

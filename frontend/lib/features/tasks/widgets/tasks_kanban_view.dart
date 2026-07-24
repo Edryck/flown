@@ -5,6 +5,7 @@ import '../../../core/models/project.dart';
 import '../../../core/models/task.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../../core/widgets/priority_badge.dart';
+import '../utils/task_status_colors.dart';
 
 /// Quadro Kanban com drag-and-drop entre colunas — tradução fiel de
 /// TasksKanbanView.tsx (docs/prototype/components/tasks-kanban-view.md):
@@ -138,7 +139,7 @@ class _KanbanColumnState extends State<_KanbanColumn> {
               children: [
                 Expanded(
                   child: Text(
-                    widget.status,
+                    statusLabelPtBr(widget.status),
                     style: const TextStyle(fontWeight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis,
                   ),

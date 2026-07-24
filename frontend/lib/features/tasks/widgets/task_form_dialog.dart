@@ -14,6 +14,7 @@ import '../../projects/providers/project_type_repository.dart';
 import '../../settings/providers/settings_preferences.dart';
 import '../providers/task_list_controller.dart';
 import '../providers/task_repository.dart';
+import '../utils/task_status_colors.dart';
 
 /// Abre o formulário de criação/edição de tarefa como modal, por cima da
 /// tela atual (Kanban/Tabela/Calendário/etc.) — ao contrário de uma rota
@@ -334,7 +335,7 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                                         decoration: const InputDecoration(labelText: 'Status'),
                                         items: [
                                           for (final status in availableStatus)
-                                            DropdownMenuItem(value: status, child: Text(status)),
+                                            DropdownMenuItem(value: status, child: Text(statusLabelPtBr(status))),
                                         ],
                                         onChanged: (value) => setState(() => _status = value),
                                       ),
