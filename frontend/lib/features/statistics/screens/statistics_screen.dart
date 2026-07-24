@@ -21,8 +21,8 @@ import '../widgets/completion_heatmap.dart';
 ///
 /// Duas janelas de dados diferentes, de propósito: `dashboardStatsProvider`
 /// (90 dias, "desempenho recente" — cards + pizza de distribuição) e
-/// `annualDashboardStatsProvider` (~1 ano contando bissextos — heatmap +
-/// gráfico mensal, que precisam de mais histórico pra fazer sentido).
+/// `annualDashboardStatsProvider` (desde 1º de janeiro do ano corrente —
+/// heatmap + gráfico mensal, que mostram o ano calendário inteiro).
 class StatisticsScreen extends ConsumerWidget {
   const StatisticsScreen({super.key});
 
@@ -33,93 +33,120 @@ class StatisticsScreen extends ConsumerWidget {
     final annualStatsAsync = ref.watch(annualDashboardStatsProvider);
     final tasksAsync = ref.watch(taskListControllerProvider);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Estatísticas', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
-          Text(
-            'Rastreie sua produtividade e desempenho',
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 24),
-          statsAsync.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(child: CircularProgressIndicator()),
+    return ScreenGradientBackdrop(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Estatísticas',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            error: (error, _) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 48),
-              child: Center(child: Text('Erro ao carregar estatísticas: $error')),
+            Text(
+              'Rastreie sua produtividade e desempenho',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-            data: (stats) {
-              final tasks = tasksAsync.valueOrNull ?? const [];
-              final annualHeatmap = annualStatsAsync.valueOrNull?.productivity.heatmap ?? const <HeatmapEntry>[];
-              final annualWindowDays = annualStatsAsync.valueOrNull?.windowDays ?? stats.windowDays;
+            const SizedBox(height: 24),
+            statsAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, _) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Center(
+                  child: Text('Erro ao carregar estatísticas: $error'),
+                ),
+              ),
+              data: (stats) {
+                final tasks = tasksAsync.valueOrNull ?? const [];
+                final annualHeatmap =
+                    annualStatsAsync.valueOrNull?.productivity.heatmap ??
+                    const <HeatmapEntry>[];
 
-              final monthly = aggregateHeatmapByMonth(annualHeatmap);
-              // "Até 7 meses" de propósito — o heatmap por trás cobre o ano
-              // inteiro, mas ao lado da pizza (mais estreito) o gráfico de
-              // barras fica ilegível com os 12 meses; os 7 mais recentes
-              // bastam pra mostrar tendência sem espremer demais.
-              final recentMonthly = monthly.length > 7 ? monthly.sublist(monthly.length - 7) : monthly;
+                final monthly = aggregateHeatmapByMonth(annualHeatmap);
+                // "Até 7 meses" de propósito — o heatmap por trás cobre o ano
+                // inteiro, mas ao lado da pizza (mais estreito) o gráfico de
+                // barras fica ilegível com os 12 meses; os 7 mais recentes
+                // bastam pra mostrar tendência sem espremer demais.
+                final recentMonthly = monthly.length > 7
+                    ? monthly.sublist(monthly.length - 7)
+                    : monthly;
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _MetricsRow(stats: stats),
-                  const SizedBox(height: 24),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final barChart = _ChartCard(
-                        title: 'Conclusão ao Longo do Tempo',
-                        subtitle: 'Total de conclusões por mês (últimos ${recentMonthly.length} meses)',
-                        child: _MonthlyBarChart(data: recentMonthly),
-                      );
-                      final pieChart = _ChartCard(
-                        title: 'Distribuição de Tarefas',
-                        subtitle: 'Tarefas atuais por status',
-                        child: _StatusPieChart(byStatus: stats.projectHealth.distribution.byStatus),
-                      );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _MetricsRow(stats: stats),
+                    const SizedBox(height: 24),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final barChart = _ChartCard(
+                          title: 'Conclusão ao Longo do Tempo',
+                          subtitle:
+                              'Total de conclusões por mês (últimos ${recentMonthly.length} meses)',
+                          child: _MonthlyBarChart(data: recentMonthly),
+                        );
+                        final pieChart = _ChartCard(
+                          title: 'Distribuição de Tarefas',
+                          subtitle: 'Tarefas atuais por status',
+                          child: _StatusPieChart(
+                            byStatus: stats.projectHealth.distribution.byStatus,
+                          ),
+                        );
 
-                      // Lado a lado com a MESMA largura e altura (a divisão
-                      // fica bem no meio) — só empilha em telas estreitas,
-                      // onde não cabem os dois cards um do lado do outro.
-                      if (constraints.maxWidth < 700) {
-                        return Column(children: [barChart, const SizedBox(height: 24), pieChart]);
-                      }
-                      return IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(child: barChart),
-                            const SizedBox(width: 24),
-                            Expanded(child: pieChart),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  _ChartCard(
-                    title: 'Atividade Semanal',
-                    subtitle: 'Tarefas tocadas por dia, por status atual (semana começando no domingo)',
-                    child: _WeeklyActivityChart(data: computeWeeklyStatusActivity(tasks)),
-                  ),
-                  const SizedBox(height: 24),
-                  _ChartCard(
-                    title: 'Mapa de Conclusões',
-                    subtitle: 'Tarefas concluídas por dia (último ano)',
-                    child: CompletionHeatmap(entries: annualHeatmap, windowDays: annualWindowDays),
-                  ),
-                  const SizedBox(height: 24),
-                  _InsightsPanel(stats: stats),
-                ],
-              );
-            },
-          ),
-        ],
+                        // Lado a lado com a MESMA largura e altura (a divisão
+                        // fica bem no meio) — só empilha em telas estreitas,
+                        // onde não cabem os dois cards um do lado do outro.
+                        if (constraints.maxWidth < 700) {
+                          return Column(
+                            children: [
+                              barChart,
+                              const SizedBox(height: 24),
+                              pieChart,
+                            ],
+                          );
+                        }
+                        return IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(child: barChart),
+                              const SizedBox(width: 24),
+                              Expanded(child: pieChart),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    _ChartCard(
+                      title: 'Atividade Semanal',
+                      subtitle:
+                          'Tarefas tocadas por dia, por status atual (semana começando no domingo)',
+                      child: _WeeklyActivityChart(
+                        data: computeWeeklyStatusActivity(tasks),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _ChartCard(
+                      title: 'Mapa de Conclusões',
+                      subtitle:
+                          'Tarefas concluídas por dia em ${DateTime.now().year}',
+                      child: CompletionHeatmap(entries: annualHeatmap),
+                    ),
+                    const SizedBox(height: 24),
+                    _InsightsPanel(stats: stats),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

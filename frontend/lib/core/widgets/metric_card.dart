@@ -15,20 +15,19 @@ class MetricTrend {
   final bool positive;
 }
 
-/// Card de métrica única (título + valor grande + ícone + trend opcional).
-/// Tradução fiel de MetricCard.tsx
-/// (docs/prototype/components/metric-card.md): mesma composição visual e a
-/// mesma animação de entrada (fade + slide-up, 0.3s) e o mesmo hover com
-/// sombra — mas usando cores do `ColorScheme`/tema em vez de hardcoded,
-/// corrigindo o gap de dark mode que o componente original tem
-/// (docs/prototype/01-dark-mode-gaps.md).
+/// Card de métrica única (valor grande + título + ícone grande sangrando
+/// pela borda + trend opcional). Redesenhado a partir de uma referência
+/// visual (`image.png`, raiz do repo) pedida pelo usuário — não é mais fiel
+/// ao MetricCard.tsx do protótipo (docs/prototype/components/metric-card.md,
+/// que usava um ícone pequeno num chip colorido): ícone grande, meio cortado
+/// pelo canto do card, e o card mais baixo/largo. Mantém a mesma animação de
+/// entrada (fade + slide-up) e o hover com sombra do design anterior.
 class MetricCard extends StatefulWidget {
   const MetricCard({
     super.key,
     required this.title,
     required this.value,
     required this.icon,
-    this.iconBackgroundColor,
     this.iconColor,
     this.subtitle,
     this.trend,
@@ -37,7 +36,6 @@ class MetricCard extends StatefulWidget {
   final String title;
   final String value;
   final IconData icon;
-  final Color? iconBackgroundColor;
   final Color? iconColor;
   final String? subtitle;
   final MetricTrend? trend;
@@ -68,6 +66,7 @@ class _MetricCardState extends State<MetricCard> with SingleTickerProviderStateM
     final colorScheme = theme.colorScheme;
     final semantic = context.semanticColors;
     final curved = CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
+    final accentColor = widget.iconColor ?? colorScheme.primary;
 
     return FadeTransition(
       opacity: curved,
@@ -78,9 +77,10 @@ class _MetricCardState extends State<MetricCard> with SingleTickerProviderStateM
           onExit: (_) => setState(() => _hovering = false),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: theme.cardTheme.color ?? colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: colorScheme.outlineVariant),
               boxShadow: _hovering
                   ? [
@@ -92,60 +92,59 @@ class _MetricCardState extends State<MetricCard> with SingleTickerProviderStateM
                     ]
                   : null,
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+            child: Stack(
+              children: [
+                // Ícone grande sangrando pra fora do card, cortado pela borda
+                // (`clipBehavior` acima) — mesmo tratamento de `image.png`.
+                Positioned(
+                  right: -24,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Icon(widget.icon, size: 92, color: accentColor.withValues(alpha: 0.9)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.value,
+                        style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.title,
+                        style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      if (widget.subtitle != null) ...[
+                        const SizedBox(height: 2),
                         Text(
-                          widget.title,
-                          style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          widget.value,
-                          style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        if (widget.subtitle != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            widget.subtitle!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                            ),
+                          widget.subtitle!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 11,
                           ),
-                        ],
-                        if (widget.trend != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            '${widget.trend!.positive ? '↑' : '↓'} ${widget.trend!.value}',
-                            style: TextStyle(
-                              color: widget.trend!.positive ? semantic.priorityLow : semantic.priorityHigh,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                        ),
                       ],
-                    ),
+                      if (widget.trend != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '${widget.trend!.positive ? '↑' : '↓'} ${widget.trend!.value}',
+                          style: TextStyle(
+                            color: widget.trend!.positive ? semantic.priorityLow : semantic.priorityHigh,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: widget.iconBackgroundColor ?? colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(widget.icon, size: 24, color: widget.iconColor ?? colorScheme.primary),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
