@@ -10,7 +10,6 @@ import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/focus/screens/focus_screen.dart';
 import '../../features/notes/screens/notes_screen.dart';
 import '../../features/projects/screens/projects_screen.dart';
-import '../../features/search/screens/search_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/statistics/screens/statistics_screen.dart';
 import '../../features/tasks/screens/tasks_screen.dart';
@@ -83,7 +82,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/projects', builder: (context, state) => const ProjectsScreen()),
           GoRoute(path: '/tasks', builder: (context, state) => const TasksScreen()),
           GoRoute(path: '/notes', builder: (context, state) => const NotesScreen()),
-          GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
           GoRoute(path: '/statistics', builder: (context, state) => const StatisticsScreen()),
           GoRoute(path: '/trash', builder: (context, state) => const TrashScreen()),
           GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
