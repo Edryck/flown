@@ -36,6 +36,7 @@ class TasksTableView extends StatefulWidget {
     required this.tasks,
     required this.projectsById,
     required this.statusOrder,
+    required this.onView,
     required this.onEdit,
     required this.onDelete,
     required this.onViewSubtasks,
@@ -44,6 +45,10 @@ class TasksTableView extends StatefulWidget {
   final List<Task> tasks;
   final Map<String, Project> projectsById;
   final List<String> statusOrder;
+
+  /// Clique na linha (fora do checkbox/menu de ações) — abre a tarefa em
+  /// modo visualização (`TaskViewDialog`), não o form de edição completo.
+  final ValueChanged<Task> onView;
   final ValueChanged<Task> onEdit;
   final ValueChanged<Task> onDelete;
   final ValueChanged<Task> onViewSubtasks;
@@ -63,7 +68,7 @@ class _TasksTableViewState extends State<TasksTableView> {
     4: FixedColumnWidth(140),
     5: FixedColumnWidth(100),
     6: FlexColumnWidth(1.6),
-    7: FixedColumnWidth(84),
+    7: FixedColumnWidth(96),
   };
 
   bool _isOverdue(Task task) {
@@ -101,10 +106,19 @@ class _TasksTableViewState extends State<TasksTableView> {
       horizontal: 12,
       vertical: 12,
     ),
+    VoidCallback? onTap,
   }) {
+    final content = Padding(padding: padding, child: child);
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,
-      child: Padding(padding: padding, child: child),
+      // `TableRowInkWell` (não `InkWell` puro) de propósito — ele calcula o
+      // retângulo da linha inteira dentro do `Table` ancestral, então o
+      // splash cobre a linha toda mesmo com cada célula sendo um
+      // `TableRowInkWell` independente (mesmo padrão usado pelo `DataTable`
+      // do próprio Flutter).
+      child: onTap == null
+          ? content
+          : TableRowInkWell(onTap: onTap, child: content),
     );
   }
 
@@ -187,6 +201,7 @@ class _TasksTableViewState extends State<TasksTableView> {
                   ),
                 ),
                 _cell(
+                  onTap: () => widget.onView(task),
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,13 +231,18 @@ class _TasksTableViewState extends State<TasksTableView> {
                   ),
                 ),
                 _cell(
+                  onTap: () => widget.onView(task),
                   Text(
                     widget.projectsById[task.projectId]?.name ?? '—',
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                _cell(PriorityBadge(priority: task.priority)),
                 _cell(
+                  onTap: () => widget.onView(task),
+                  PriorityBadge(priority: task.priority),
+                ),
+                _cell(
+                  onTap: () => widget.onView(task),
                   StatusBadge(
                     label: statusLabelPtBr(task.status),
                     colorIndex: widget.statusOrder
@@ -231,6 +251,7 @@ class _TasksTableViewState extends State<TasksTableView> {
                   ),
                 ),
                 _cell(
+                  onTap: () => widget.onView(task),
                   Text(
                     task.dueDate == null
                         ? '—'
@@ -244,6 +265,7 @@ class _TasksTableViewState extends State<TasksTableView> {
                   ),
                 ),
                 _cell(
+                  onTap: () => widget.onView(task),
                   Row(
                     children: [
                       Expanded(
@@ -268,6 +290,10 @@ class _TasksTableViewState extends State<TasksTableView> {
                   ),
                 ),
                 _cell(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 12,
+                  ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -275,10 +301,14 @@ class _TasksTableViewState extends State<TasksTableView> {
                         onPressed: () => widget.onViewSubtasks(task),
                         icon: const Icon(Icons.account_tree_outlined, size: 18),
                         tooltip: 'Ver subtarefas',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         visualDensity: VisualDensity.compact,
                       ),
+                      const SizedBox(width: 4),
                       PopupMenuButton<_RowAction>(
                         icon: const Icon(Icons.more_vert, size: 18),
+                        padding: EdgeInsets.zero,
                         onSelected: (action) {
                           switch (action) {
                             case _RowAction.edit:

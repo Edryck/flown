@@ -12,6 +12,7 @@ import '../utils/task_status_colors.dart';
 import '../widgets/subtasks_graph_dialog.dart';
 import '../widgets/task_filter_dialog.dart';
 import '../widgets/task_form_dialog.dart';
+import '../widgets/task_view_dialog.dart';
 import '../widgets/tasks_calendar_view.dart';
 import '../widgets/tasks_kanban_view.dart';
 import '../widgets/tasks_table_view.dart';
@@ -193,6 +194,8 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
 
   void _edit(Task task) => showTaskFormDialog(context, task: task);
 
+  void _viewTask(Task task) => showTaskViewDialog(context, task: task);
+
   void _viewSubtasks(Task task) => showSubtasksGraphDialog(context, task: task);
 
   @override
@@ -327,6 +330,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     tasks: filtered,
                     projectsById: projectsById,
                     statusOrder: statusOrder,
+                    onView: _viewTask,
                     onEdit: _edit,
                     onDelete: _confirmDelete,
                     onViewSubtasks: _viewSubtasks,
@@ -338,12 +342,12 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     onMove: (taskId, newStatus) => ref
                         .read(taskListControllerProvider.notifier)
                         .updateStatus(taskId, newStatus),
-                    onTapTask: _edit,
+                    onTapTask: _viewTask,
                     onViewSubtasks: _viewSubtasks,
                   ),
                   _TasksView.calendar => TasksCalendarView(
                     tasks: tasks,
-                    onTapTask: _edit,
+                    onTapTask: _viewTask,
                     onViewSubtasks: _viewSubtasks,
                   ),
                 };

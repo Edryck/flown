@@ -144,16 +144,20 @@ class _SubtasksGraphDialog extends ConsumerWidget {
                                 (vertex.data['title'] as String?) ?? '')
                             ..onVertexTapUp = ((vertex, _) =>
                                 openTaskView(vertex.id.toString()))
-                            ..backgroundBuilder = ((context) =>
-                                Container(color: const Color(0xFF1A2633)))
+                            // Fundo segue o tema do app (claro/escuro) em vez
+                            // de escuro fixo — antes o texto branco do rótulo
+                            // ficava ilegível no tema claro.
+                            ..backgroundBuilder = ((context) => Container(
+                              color: theme.colorScheme.surfaceContainerLow,
+                            ))
                             ..graphStyle = (GraphStyle()
                               ..tagColor = {
                                 'root': const Color(0xFF7BA3C7),
                                 'subtask': const Color(0xFF4A9E99),
                               }
                               ..vertexTextStyleGetter = (vertex, shape) =>
-                                  const TextStyle(
-                                    color: Colors.white,
+                                  TextStyle(
+                                    color: theme.colorScheme.onSurface,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                   )),
@@ -200,26 +204,30 @@ class _GraphEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: const Color(0xFF1A2633),
+      color: colorScheme.surfaceContainerLow,
       alignment: Alignment.center,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.account_tree_outlined,
             size: 40,
-            color: Colors.white38,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Nenhuma subtarefa ainda',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 4),
           Text(
             'Adicione a primeira subtarefa de "$rootTitle" abaixo',
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              fontSize: 12,
+            ),
           ),
         ],
       ),
