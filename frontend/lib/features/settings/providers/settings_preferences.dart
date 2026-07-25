@@ -74,8 +74,8 @@ class SettingsPreferences {
 
   /// Configuração do fundo de partículas interativas do Modo Foco
   /// (`particles_network`, `ParticleNetwork` em `focus_screen.dart`) —
-  /// ajustável no tópico "Aparência" das Configurações, pedido explícito do
-  /// usuário (sem referência no protótipo, que não tinha esse efeito).
+  /// ajustável no tópico "Aparência" das Configurações (sem referência no
+  /// protótipo, que não tinha esse efeito).
   final bool particlesEnabled;
   final int particleCount;
   final double particleSpeed;
@@ -130,9 +130,10 @@ class SettingsPreferencesController extends _$SettingsPreferencesController {
   FutureOr<SettingsPreferences> build() async {
     final prefs = await SharedPreferences.getInstance();
     return SettingsPreferences(
-      defaultPriority: TaskPriority.values
-          .where((p) => p.wireValue == prefs.getString(_kDefaultPriority))
-          .firstOrNull ??
+      defaultPriority:
+          TaskPriority.values
+              .where((p) => p.wireValue == prefs.getString(_kDefaultPriority))
+              .firstOrNull ??
           TaskPriority.medium,
       defaultStatus: prefs.getString(_kDefaultStatus) ?? 'todo',
       showCompletedTasks: prefs.getBool(_kShowCompletedTasks) ?? true,

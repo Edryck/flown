@@ -17,17 +17,27 @@ import '../../../core/theme/semantic_colors.dart';
 /// task em `TaskFormScreen` pra editar/mudar status/marcar como concluída
 /// — o protótipo não tinha nenhuma ação de clique aqui.
 class TasksCalendarView extends StatefulWidget {
-  const TasksCalendarView({super.key, required this.tasks, required this.onTapTask});
+  const TasksCalendarView({
+    super.key,
+    required this.tasks,
+    required this.onTapTask,
+    required this.onViewSubtasks,
+  });
 
   final List<Task> tasks;
   final ValueChanged<Task> onTapTask;
+  final ValueChanged<Task> onViewSubtasks;
 
   @override
   State<TasksCalendarView> createState() => _TasksCalendarViewState();
 }
 
 class _TasksCalendarViewState extends State<TasksCalendarView> {
-  late DateTime _currentMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  late DateTime _currentMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    1,
+  );
 
   static const _monthNames = [
     'Janeiro',
@@ -63,7 +73,9 @@ class _TasksCalendarViewState extends State<TasksCalendarView> {
     return widget.tasks.where((task) {
       final due = task.dueDate;
       if (due == null) return false;
-      return due.year == date.year && due.month == date.month && due.day == date.day;
+      return due.year == date.year &&
+          due.month == date.month &&
+          due.day == date.day;
     }).toList();
   }
 
@@ -71,14 +83,19 @@ class _TasksCalendarViewState extends State<TasksCalendarView> {
     if (task.completedAt != null || task.dueDate == null) return false;
     final today = DateTime.now();
     final due = task.dueDate!;
-    return DateTime(due.year, due.month, due.day).isBefore(DateTime(today.year, today.month, today.day));
+    return DateTime(
+      due.year,
+      due.month,
+      due.day,
+    ).isBefore(DateTime(today.year, today.month, today.day));
   }
 
-  Color _priorityDotColor(TaskPriority priority, AppSemanticColors semantic) => switch (priority) {
-    TaskPriority.high => semantic.priorityHigh,
-    TaskPriority.medium => semantic.priorityMedium,
-    TaskPriority.low => semantic.priorityLow,
-  };
+  Color _priorityDotColor(TaskPriority priority, AppSemanticColors semantic) =>
+      switch (priority) {
+        TaskPriority.high => semantic.priorityHigh,
+        TaskPriority.medium => semantic.priorityMedium,
+        TaskPriority.low => semantic.priorityLow,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -87,29 +104,44 @@ class _TasksCalendarViewState extends State<TasksCalendarView> {
     final semantic = context.semanticColors;
     final today = DateTime.now();
 
-    final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
-    final startingWeekday = firstDayOfMonth.weekday % 7; // 0 = domingo .. 6 = sábado
+    final firstDayOfMonth = DateTime(
+      _currentMonth.year,
+      _currentMonth.month,
+      1,
+    );
+    final daysInMonth = DateTime(
+      _currentMonth.year,
+      _currentMonth.month + 1,
+      0,
+    ).day;
+    final startingWeekday =
+        firstDayOfMonth.weekday % 7; // 0 = domingo .. 6 = sábado
 
     final totalCells = startingWeekday + daysInMonth;
     final trailingEmpty = (7 - totalCells % 7) % 7;
 
     final cells = <Widget>[
-      for (var i = 0; i < startingWeekday; i++) _EmptyDayCell(colorScheme: colorScheme),
+      for (var i = 0; i < startingWeekday; i++)
+        _EmptyDayCell(colorScheme: colorScheme),
       for (var day = 1; day <= daysInMonth; day++)
         _DayCell(
           day: day,
-          isToday: DateTime(_currentMonth.year, _currentMonth.month, day) ==
+          isToday:
+              DateTime(_currentMonth.year, _currentMonth.month, day) ==
               DateTime(today.year, today.month, today.day),
-          tasks: _tasksForDate(DateTime(_currentMonth.year, _currentMonth.month, day)),
+          tasks: _tasksForDate(
+            DateTime(_currentMonth.year, _currentMonth.month, day),
+          ),
           isOverdue: _isOverdue,
           priorityDotColor: (p) => _priorityDotColor(p, semantic),
           semantic: semantic,
           colorScheme: colorScheme,
           theme: theme,
           onTapTask: widget.onTapTask,
+          onViewSubtasks: widget.onViewSubtasks,
         ),
-      for (var i = 0; i < trailingEmpty; i++) _EmptyDayCell(colorScheme: colorScheme),
+      for (var i = 0; i < trailingEmpty; i++)
+        _EmptyDayCell(colorScheme: colorScheme),
     ];
 
     final rows = <TableRow>[
@@ -120,11 +152,17 @@ class _TasksCalendarViewState extends State<TasksCalendarView> {
               height: 40,
               color: colorScheme.surfaceContainerHighest,
               alignment: Alignment.center,
-              child: Text(name, style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w500)),
+              child: Text(
+                name,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
         ],
       ),
-      for (var i = 0; i < cells.length; i += 7) TableRow(children: cells.sublist(i, i + 7)),
+      for (var i = 0; i < cells.length; i += 7)
+        TableRow(children: cells.sublist(i, i + 7)),
     ];
 
     return Container(
@@ -142,21 +180,32 @@ class _TasksCalendarViewState extends State<TasksCalendarView> {
             children: [
               Text(
                 '${_monthNames[_currentMonth.month - 1]} ${_currentMonth.year}',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               Row(
                 children: [
                   OutlinedButton(
                     onPressed: _previousMonth,
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(8), minimumSize: const Size(36, 36)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.all(8),
+                      minimumSize: const Size(36, 36),
+                    ),
                     child: const Icon(Icons.chevron_left, size: 18),
                   ),
                   const SizedBox(width: 8),
-                  OutlinedButton(onPressed: _goToToday, child: const Text('Hoje')),
+                  OutlinedButton(
+                    onPressed: _goToToday,
+                    child: const Text('Hoje'),
+                  ),
                   const SizedBox(width: 8),
                   OutlinedButton(
                     onPressed: _nextMonth,
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(8), minimumSize: const Size(36, 36)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.all(8),
+                      minimumSize: const Size(36, 36),
+                    ),
                     child: const Icon(Icons.chevron_right, size: 18),
                   ),
                 ],
@@ -167,7 +216,10 @@ class _TasksCalendarViewState extends State<TasksCalendarView> {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Table(
-              border: TableBorder.all(color: colorScheme.outlineVariant, width: 1),
+              border: TableBorder.all(
+                color: colorScheme.outlineVariant,
+                width: 1,
+              ),
               children: rows,
             ),
           ),
@@ -177,9 +229,18 @@ class _TasksCalendarViewState extends State<TasksCalendarView> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _LegendDot(color: semantic.priorityHigh, label: 'Alta Prioridade'),
-              _LegendDot(color: semantic.priorityMedium, label: 'Média Prioridade'),
-              _LegendDot(color: semantic.priorityLow, label: 'Baixa Prioridade'),
+              _LegendDot(
+                color: semantic.priorityHigh,
+                label: 'Alta Prioridade',
+              ),
+              _LegendDot(
+                color: semantic.priorityMedium,
+                label: 'Média Prioridade',
+              ),
+              _LegendDot(
+                color: semantic.priorityLow,
+                label: 'Baixa Prioridade',
+              ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -192,7 +253,12 @@ class _TasksCalendarViewState extends State<TasksCalendarView> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text('Hoje', style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                  Text(
+                    'Hoje',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -210,7 +276,10 @@ class _EmptyDayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(height: 120, color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3));
+    return Container(
+      height: 120,
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+    );
   }
 }
 
@@ -225,6 +294,7 @@ class _DayCell extends StatelessWidget {
     required this.colorScheme,
     required this.theme,
     required this.onTapTask,
+    required this.onViewSubtasks,
   });
 
   final int day;
@@ -236,6 +306,7 @@ class _DayCell extends StatelessWidget {
   final ColorScheme colorScheme;
   final ThemeData theme;
   final ValueChanged<Task> onTapTask;
+  final ValueChanged<Task> onViewSubtasks;
 
   @override
   Widget build(BuildContext context) {
@@ -246,7 +317,9 @@ class _DayCell extends StatelessWidget {
       height: 120,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        border: isToday ? Border.all(color: colorScheme.primary, width: 2) : null,
+        border: isToday
+            ? Border.all(color: colorScheme.primary, width: 2)
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,18 +331,33 @@ class _DayCell extends StatelessWidget {
                   ? Container(
                       width: 24,
                       height: 24,
-                      decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
                       alignment: Alignment.center,
                       child: Text(
                         '$day',
-                        style: TextStyle(color: colorScheme.onPrimary, fontSize: 12, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                          color: colorScheme.onPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     )
-                  : Text('$day', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                  : Text(
+                      '$day',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                      ),
+                    ),
               if (tasks.isNotEmpty)
                 Text(
                   '${tasks.length}',
-                  style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
             ],
           ),
@@ -287,10 +375,14 @@ class _DayCell extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                         onTap: () => onTapTask(task),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color:
-                                isOverdue(task) ? semantic.priorityHighContainer : colorScheme.surfaceContainerHighest,
+                            color: isOverdue(task)
+                                ? semantic.priorityHighContainer
+                                : colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(
                               color: isOverdue(task)
@@ -303,8 +395,10 @@ class _DayCell extends StatelessWidget {
                               Container(
                                 width: 6,
                                 height: 6,
-                                decoration:
-                                    BoxDecoration(color: priorityDotColor(task.priority), shape: BoxShape.circle),
+                                decoration: BoxDecoration(
+                                  color: priorityDotColor(task.priority),
+                                  shape: BoxShape.circle,
+                                ),
                               ),
                               const SizedBox(width: 4),
                               Expanded(
@@ -314,8 +408,19 @@ class _DayCell extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: isOverdue(task) ? semantic.priorityHigh : null,
+                                    color: isOverdue(task)
+                                        ? semantic.priorityHigh
+                                        : null,
                                   ),
+                                ),
+                              ),
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => onViewSubtasks(task),
+                                child: Icon(
+                                  Icons.account_tree_outlined,
+                                  size: 10,
+                                  color: colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -329,7 +434,9 @@ class _DayCell extends StatelessWidget {
                       child: Text(
                         '+$remaining mais',
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                 ],
@@ -354,9 +461,18 @@ class _LegendDot extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 8),
-        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }

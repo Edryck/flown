@@ -41,6 +41,7 @@ class TasksKanbanView extends StatelessWidget {
     required this.statusOrder,
     required this.onMove,
     required this.onTapTask,
+    required this.onViewSubtasks,
   });
 
   final List<Task> tasks;
@@ -48,6 +49,7 @@ class TasksKanbanView extends StatelessWidget {
   final List<String> statusOrder;
   final void Function(String taskId, String newStatus) onMove;
   final ValueChanged<Task> onTapTask;
+  final ValueChanged<Task> onViewSubtasks;
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +67,9 @@ class TasksKanbanView extends StatelessWidget {
         ),
         child: Text(
           'Nenhum status disponível ainda',
-          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -85,6 +89,7 @@ class TasksKanbanView extends StatelessWidget {
                 projectsById: projectsById,
                 onMove: onMove,
                 onTapTask: onTapTask,
+                onViewSubtasks: onViewSubtasks,
               ),
             ),
         ],
@@ -101,6 +106,7 @@ class _KanbanColumn extends StatefulWidget {
     required this.projectsById,
     required this.onMove,
     required this.onTapTask,
+    required this.onViewSubtasks,
   });
 
   final String status;
@@ -109,6 +115,7 @@ class _KanbanColumn extends StatefulWidget {
   final Map<String, Project> projectsById;
   final void Function(String taskId, String newStatus) onMove;
   final ValueChanged<Task> onTapTask;
+  final ValueChanged<Task> onViewSubtasks;
 
   @override
   State<_KanbanColumn> createState() => _KanbanColumnState();
@@ -131,8 +138,12 @@ class _KanbanColumnState extends State<_KanbanColumn> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: semantic.statusContainerColorAt(widget.colorIndex),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              border: Border(bottom: BorderSide(color: colorScheme.outlineVariant, width: 2)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              border: Border(
+                bottom: BorderSide(color: colorScheme.outlineVariant, width: 2),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -145,14 +156,19 @@ class _KanbanColumnState extends State<_KanbanColumn> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.cardTheme.color ?? colorScheme.surface,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     '${widget.tasks.length}',
-                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],
@@ -160,26 +176,35 @@ class _KanbanColumnState extends State<_KanbanColumn> {
           ),
           Expanded(
             child: DragTarget<Task>(
-              onWillAcceptWithDetails: (details) => details.data.status != widget.status,
-              onAcceptWithDetails: (details) => widget.onMove(details.data.id, widget.status),
+              onWillAcceptWithDetails: (details) =>
+                  details.data.status != widget.status,
+              onAcceptWithDetails: (details) =>
+                  widget.onMove(details.data.id, widget.status),
               builder: (context, candidateData, rejectedData) {
                 final isOver = candidateData.isNotEmpty;
                 return Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isOver ? colorScheme.primary.withValues(alpha: 0.08) : colorScheme.surfaceContainerLowest,
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                    color: isOver
+                        ? colorScheme.primary.withValues(alpha: 0.08)
+                        : colorScheme.surfaceContainerLowest,
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(12),
+                    ),
                   ),
                   child: widget.tasks.isEmpty
                       ? Center(
                           child: Text(
                             'Solte tarefas aqui',
-                            style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         )
                       : ListView.separated(
                           itemCount: widget.tasks.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final task = widget.tasks[index];
                             return LongPressDraggable<Task>(
@@ -193,7 +218,10 @@ class _KanbanColumnState extends State<_KanbanColumn> {
                                     angle: 0.03,
                                     child: _KanbanTaskCard(
                                       task: task,
-                                      projectName: widget.projectsById[task.projectId]?.name,
+                                      projectName: widget
+                                          .projectsById[task.projectId]
+                                          ?.name,
+                                      onViewSubtasks: widget.onViewSubtasks,
                                       elevated: true,
                                     ),
                                   ),
@@ -203,7 +231,9 @@ class _KanbanColumnState extends State<_KanbanColumn> {
                                 opacity: 0.4,
                                 child: _KanbanTaskCard(
                                   task: task,
-                                  projectName: widget.projectsById[task.projectId]?.name,
+                                  projectName:
+                                      widget.projectsById[task.projectId]?.name,
+                                  onViewSubtasks: widget.onViewSubtasks,
                                 ),
                               ),
                               child: InkWell(
@@ -211,7 +241,9 @@ class _KanbanColumnState extends State<_KanbanColumn> {
                                 onTap: () => widget.onTapTask(task),
                                 child: _KanbanTaskCard(
                                   task: task,
-                                  projectName: widget.projectsById[task.projectId]?.name,
+                                  projectName:
+                                      widget.projectsById[task.projectId]?.name,
+                                  onViewSubtasks: widget.onViewSubtasks,
                                 ),
                               ),
                             );
@@ -228,17 +260,27 @@ class _KanbanColumnState extends State<_KanbanColumn> {
 }
 
 class _KanbanTaskCard extends StatelessWidget {
-  const _KanbanTaskCard({required this.task, required this.projectName, this.elevated = false});
+  const _KanbanTaskCard({
+    required this.task,
+    required this.projectName,
+    required this.onViewSubtasks,
+    this.elevated = false,
+  });
 
   final Task task;
   final String? projectName;
+  final ValueChanged<Task> onViewSubtasks;
   final bool elevated;
 
   bool get _isOverdue {
     if (task.completedAt != null || task.dueDate == null) return false;
     final today = DateTime.now();
     final due = task.dueDate!;
-    return DateTime(due.year, due.month, due.day).isBefore(DateTime(today.year, today.month, today.day));
+    return DateTime(
+      due.year,
+      due.month,
+      due.day,
+    ).isBefore(DateTime(today.year, today.month, today.day));
   }
 
   @override
@@ -252,11 +294,21 @@ class _KanbanTaskCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: overdue ? semantic.priorityHighContainer.withValues(alpha: 0.3) : theme.cardTheme.color ?? colorScheme.surface,
+        color: overdue
+            ? semantic.priorityHighContainer.withValues(alpha: 0.3)
+            : theme.cardTheme.color ?? colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: overdue ? semantic.priorityHigh : colorScheme.outlineVariant),
+        border: Border.all(
+          color: overdue ? semantic.priorityHigh : colorScheme.outlineVariant,
+        ),
         boxShadow: elevated
-            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 16, offset: const Offset(0, 6))]
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ]
             : null,
       ),
       child: Column(
@@ -269,10 +321,25 @@ class _KanbanTaskCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   task.title,
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
+              InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: () => onViewSubtasks(task),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(
+                    Icons.account_tree_outlined,
+                    size: 14,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
               PriorityBadge(priority: task.priority),
             ],
           ),
@@ -282,7 +349,9 @@ class _KanbanTaskCard extends StatelessWidget {
               task.description!,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
           if (task.tags.isNotEmpty) ...[
@@ -293,7 +362,10 @@ class _KanbanTaskCard extends StatelessWidget {
               children: [
                 for (final tag in task.tags.take(2))
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(999),
@@ -306,19 +378,31 @@ class _KanbanTaskCard extends StatelessWidget {
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.only(top: 8),
-            decoration: BoxDecoration(border: Border(top: BorderSide(color: colorScheme.outlineVariant))),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: colorScheme.outlineVariant),
+              ),
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.calendar_today_outlined, size: 12, color: colorScheme.onSurfaceVariant),
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 12,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 4),
                     Text(
-                      task.dueDate == null ? '—' : DateFormat('dd/MM').format(task.dueDate!),
+                      task.dueDate == null
+                          ? '—'
+                          : DateFormat('dd/MM').format(task.dueDate!),
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: overdue ? semantic.priorityHigh : colorScheme.onSurfaceVariant,
+                        color: overdue
+                            ? semantic.priorityHigh
+                            : colorScheme.onSurfaceVariant,
                         fontWeight: overdue ? FontWeight.w500 : null,
                       ),
                     ),
@@ -327,7 +411,9 @@ class _KanbanTaskCard extends StatelessWidget {
                 if (projectName != null)
                   Text(
                     projectName!,
-                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
               ],
             ),
@@ -337,11 +423,17 @@ class _KanbanTaskCard extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.check_box_outlined, size: 12, color: colorScheme.onSurfaceVariant),
+                Icon(
+                  Icons.check_box_outlined,
+                  size: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   '${checklist.where((c) => c.done).length}/${checklist.length}',
-                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),

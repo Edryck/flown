@@ -20,10 +20,24 @@ import '../utils/task_status_colors.dart';
 /// tela atual (Kanban/Tabela/Calendário/etc.) — ao contrário de uma rota
 /// própria, não perde a view/scroll de onde foi chamado, e fecha sozinho
 /// (`Navigator.pop`) ao salvar ou cancelar.
-Future<void> showTaskFormDialog(BuildContext context, {Task? task}) {
+///
+/// `initialParentTaskId`/`initialProjectId` só valem em modo criação (com
+/// `task == null`) — usados pelo `SubtasksGraphDialog` ao abrir "Adicionar
+/// subtarefa": pré-popula o projeto do pai (pra já vir com status válidos
+/// disponíveis) e amarra a nova task como subtarefa dele.
+Future<void> showTaskFormDialog(
+  BuildContext context, {
+  Task? task,
+  String? initialParentTaskId,
+  String? initialProjectId,
+}) {
   return showDialog<void>(
     context: context,
-    builder: (context) => _TaskFormDialog(initialTask: task),
+    builder: (context) => _TaskFormDialog(
+      initialTask: task,
+      initialParentTaskId: initialParentTaskId,
+      initialProjectId: initialProjectId,
+    ),
   );
 }
 
@@ -47,10 +61,16 @@ Future<void> showTaskFormDialog(BuildContext context, {Task? task}) {
 ///   - Sem "Salvar rascunho" — não existe conceito de rascunho no backend,
 ///     manter o botão decorativo contradiria o resto da tela ser funcional.
 class _TaskFormDialog extends ConsumerStatefulWidget {
-  const _TaskFormDialog({this.initialTask});
+  const _TaskFormDialog({
+    this.initialTask,
+    this.initialParentTaskId,
+    this.initialProjectId,
+  });
 
   /// `null` = modo criação. Presente = modo edição, pré-popula o form.
   final Task? initialTask;
+  final String? initialParentTaskId;
+  final String? initialProjectId;
 
   bool get isEdit => initialTask != null;
 
@@ -71,6 +91,7 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
 
   String? _projectId;
   String? _status;
+  String? _parentTaskId;
   TaskPriority _priority = TaskPriority.medium;
   DateTime? _dueDate;
   TimeOfDay? _dueTime;
@@ -88,6 +109,7 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
       _checklist.addAll(task.checklist);
       _projectId = task.projectId;
       _status = task.status;
+      _parentTaskId = task.parentTaskId;
       _priority = task.priority;
       if (task.dueDate != null) {
         final due = task.dueDate!;
@@ -99,7 +121,14 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
     } else {
       // Prioridade padrão configurada em Settings (`settings_preferences.dart`)
       // — só se aplica na criação, edição sempre parte da prioridade real da task.
-      _priority = ref.read(settingsPreferencesControllerProvider).valueOrNull?.defaultPriority ?? TaskPriority.medium;
+      _priority =
+          ref
+              .read(settingsPreferencesControllerProvider)
+              .valueOrNull
+              ?.defaultPriority ??
+          TaskPriority.medium;
+      _projectId = widget.initialProjectId;
+      _parentTaskId = widget.initialParentTaskId;
     }
   }
 
@@ -113,7 +142,10 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
     super.dispose();
   }
 
-  List<String> _availableStatusFor(List<Project> projects, List<ProjectType> types) {
+  List<String> _availableStatusFor(
+    List<Project> projects,
+    List<ProjectType> types,
+  ) {
     if (_projectId == null) return const [];
     final project = projects.where((p) => p.id == _projectId).firstOrNull;
     if (project == null) return const [];
@@ -121,11 +153,17 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
     return type?.availableStatus ?? const [];
   }
 
-  void _onProjectChanged(String? projectId, List<Project> projects, List<ProjectType> types) {
+  void _onProjectChanged(
+    String? projectId,
+    List<Project> projects,
+    List<ProjectType> types,
+  ) {
     setState(() {
       _projectId = projectId;
       final available = _availableStatusFor(projects, types);
-      _status = available.contains(_status) ? _status : (available.isEmpty ? null : available.first);
+      _status = available.contains(_status)
+          ? _status
+          : (available.isEmpty ? null : available.first);
     });
   }
 
@@ -149,10 +187,16 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
     });
   }
 
-  void _removeChecklistItem(int index) => setState(() => _checklist.removeAt(index));
+  void _removeChecklistItem(int index) =>
+      setState(() => _checklist.removeAt(index));
 
   void _toggleChecklistItem(int index, bool done) {
-    setState(() => _checklist[index] = ChecklistItem(text: _checklist[index].text, done: done));
+    setState(
+      () => _checklist[index] = ChecklistItem(
+        text: _checklist[index].text,
+        done: done,
+      ),
+    );
   }
 
   Future<void> _pickDueDate() async {
@@ -167,7 +211,10 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
   }
 
   Future<void> _pickDueTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _dueTime ?? TimeOfDay.now());
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _dueTime ?? TimeOfDay.now(),
+    );
     if (picked != null) setState(() => _dueTime = picked);
   }
 
@@ -190,20 +237,31 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
       if (_dueDate != null) {
         dueDate = _dueTime == null
             ? _dueDate
-            : DateTime(_dueDate!.year, _dueDate!.month, _dueDate!.day, _dueTime!.hour, _dueTime!.minute);
+            : DateTime(
+                _dueDate!.year,
+                _dueDate!.month,
+                _dueDate!.day,
+                _dueTime!.hour,
+                _dueTime!.minute,
+              );
       }
 
       final input = TaskInput(
         title: _titleController.text.trim(),
-        description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
         status: _projectId == null ? unset : _status,
         priority: _priority,
         dueDate: dueDate,
         progress: _resolveProgress(),
-        estimatedTime: _estimatedTimeController.text.trim().isEmpty ? null : _estimatedTimeController.text.trim(),
+        estimatedTime: _estimatedTimeController.text.trim().isEmpty
+            ? null
+            : _estimatedTimeController.text.trim(),
         tags: _tags,
         checklist: _checklist,
         projectId: _projectId,
+        parentTaskId: _parentTaskId,
       );
 
       final controller = ref.read(taskListControllerProvider.notifier);
@@ -216,8 +274,12 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.message : 'Erro inesperado ao salvar a tarefa';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        final message = e is ApiException
+            ? e.message
+            : 'Erro inesperado ao salvar a tarefa';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -233,11 +295,25 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
     final projects = projectsAsync.valueOrNull ?? const <Project>[];
     final types = typesAsync.valueOrNull ?? const <ProjectType>[];
     final availableStatus = _availableStatusFor(projects, types);
+    // Subtarefa não tem vencimento próprio (herda o da tarefa-mãe, imposto
+    // pelo backend em `task.service.ts`) — resolve o valor herdado só pra
+    // exibir, já que o campo de data fica escondido nesse caso.
+    final parentDueDate = _parentTaskId == null
+        ? null
+        : ref
+              .watch(taskListControllerProvider)
+              .valueOrNull
+              ?.where((t) => t.id == _parentTaskId)
+              .firstOrNull
+              ?.dueDate;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 800, maxHeight: screenSize.height * 0.85),
+        constraints: BoxConstraints(
+          maxWidth: 800,
+          maxHeight: screenSize.height * 0.85,
+        ),
         child: Form(
           key: _formKey,
           child: Column(
@@ -253,19 +329,31 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.isEdit ? 'Editar Tarefa' : 'Criar Nova Tarefa',
-                          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+                          widget.isEdit
+                              ? 'Editar Tarefa'
+                              : (_parentTaskId != null
+                                    ? 'Nova Subtarefa'
+                                    : 'Criar Nova Tarefa'),
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         Text(
                           widget.isEdit
                               ? 'Atualize os dados da tarefa'
-                              : 'Adicione uma nova tarefa ao seu fluxo de trabalho',
-                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                              : (_parentTaskId != null
+                                    ? 'Adicione uma subtarefa'
+                                    : 'Adicione uma nova tarefa ao seu fluxo de trabalho'),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
                     IconButton(
-                      onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close),
                     ),
                   ],
@@ -282,14 +370,20 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                         children: [
                           TextFormField(
                             controller: _titleController,
-                            decoration: const InputDecoration(labelText: 'Título da Tarefa *'),
+                            decoration: const InputDecoration(
+                              labelText: 'Título da Tarefa *',
+                            ),
                             validator: (value) =>
-                                (value == null || value.trim().length < 2) ? 'Título muito curto' : null,
+                                (value == null || value.trim().length < 2)
+                                ? 'Título muito curto'
+                                : null,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _descriptionController,
-                            decoration: const InputDecoration(labelText: 'Descrição'),
+                            decoration: const InputDecoration(
+                              labelText: 'Descrição',
+                            ),
                             maxLines: 4,
                           ),
                         ],
@@ -305,23 +399,38 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                               Expanded(
                                 child: DropdownButtonFormField<String?>(
                                   initialValue: _projectId,
-                                  decoration: const InputDecoration(labelText: 'Projeto'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Projeto',
+                                  ),
                                   items: [
-                                    const DropdownMenuItem(value: null, child: Text('Nenhum projeto')),
+                                    const DropdownMenuItem(
+                                      value: null,
+                                      child: Text('Nenhum projeto'),
+                                    ),
                                     for (final project in projects)
-                                      DropdownMenuItem(value: project.id, child: Text(project.name)),
+                                      DropdownMenuItem(
+                                        value: project.id,
+                                        child: Text(project.name),
+                                      ),
                                   ],
-                                  onChanged: (value) => _onProjectChanged(value, projects, types),
+                                  onChanged: (value) =>
+                                      _onProjectChanged(value, projects, types),
                                 ),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
                                 child: availableStatus.isEmpty
                                     ? InputDecorator(
-                                        decoration: const InputDecoration(labelText: 'Status'),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Status',
+                                        ),
                                         child: Text(
                                           'Selecione um projeto',
-                                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                                          style: TextStyle(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
                                         ),
                                       )
                                     : DropdownButtonFormField<String>(
@@ -332,12 +441,20 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                                         // valor antigo mesmo com `_status` já atualizado.
                                         key: ValueKey(_status),
                                         initialValue: _status,
-                                        decoration: const InputDecoration(labelText: 'Status'),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Status',
+                                        ),
                                         items: [
                                           for (final status in availableStatus)
-                                            DropdownMenuItem(value: status, child: Text(statusLabelPtBr(status))),
+                                            DropdownMenuItem(
+                                              value: status,
+                                              child: Text(
+                                                statusLabelPtBr(status),
+                                              ),
+                                            ),
                                         ],
-                                        onChanged: (value) => setState(() => _status = value),
+                                        onChanged: (value) =>
+                                            setState(() => _status = value),
                                       ),
                               ),
                             ],
@@ -348,20 +465,32 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                               Expanded(
                                 child: DropdownButtonFormField<TaskPriority>(
                                   initialValue: _priority,
-                                  decoration: const InputDecoration(labelText: 'Prioridade'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Prioridade',
+                                  ),
                                   items: [
                                     for (final priority in TaskPriority.values)
-                                      DropdownMenuItem(value: priority, child: Text(PriorityBadge.labels[priority]!)),
+                                      DropdownMenuItem(
+                                        value: priority,
+                                        child: Text(
+                                          PriorityBadge.labels[priority]!,
+                                        ),
+                                      ),
                                   ],
-                                  onChanged: (value) => setState(() => _priority = value ?? TaskPriority.medium),
+                                  onChanged: (value) => setState(
+                                    () => _priority =
+                                        value ?? TaskPriority.medium,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
                                 child: TextFormField(
                                   controller: _estimatedTimeController,
-                                  decoration:
-                                      const InputDecoration(labelText: 'Tempo Estimado', hintText: 'ex: 4 horas'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Tempo Estimado',
+                                    hintText: 'ex: 4 horas',
+                                  ),
                                 ),
                               ),
                             ],
@@ -374,12 +503,17 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                               Expanded(
                                 child: TextField(
                                   controller: _tagInputController,
-                                  decoration: const InputDecoration(hintText: 'Adicionar uma tag...'),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Adicionar uma tag...',
+                                  ),
                                   onSubmitted: (_) => _addTag(),
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              OutlinedButton(onPressed: _addTag, child: const Icon(Icons.add, size: 18)),
+                              OutlinedButton(
+                                onPressed: _addTag,
+                                child: const Icon(Icons.add, size: 18),
+                              ),
                             ],
                           ),
                           if (_tags.isNotEmpty) ...[
@@ -389,7 +523,10 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                               runSpacing: 8,
                               children: [
                                 for (final tag in _tags)
-                                  Chip(label: Text(tag), onDeleted: () => _removeTag(tag)),
+                                  Chip(
+                                    label: Text(tag),
+                                    onDeleted: () => _removeTag(tag),
+                                  ),
                               ],
                             ),
                           ],
@@ -400,31 +537,56 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                       _FormCard(
                         title: 'Cronograma',
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: _pickDueDate,
-                                  child: InputDecorator(
-                                    decoration: const InputDecoration(labelText: 'Prazo'),
-                                    child: Text(
-                                      _dueDate == null ? 'Selecionar data' : DateFormat('dd/MM/yyyy').format(_dueDate!),
+                          if (_parentTaskId != null)
+                            // Subtarefa não define vencimento próprio — só
+                            // mostra o herdado da tarefa-mãe, sem seletor.
+                            Text(
+                              parentDueDate == null
+                                  ? 'Sem vencimento (herdado da tarefa-mãe)'
+                                  : 'Vence em ${DateFormat('dd/MM/yyyy').format(parentDueDate)} (herdado da tarefa-mãe)',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            )
+                          else
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: _pickDueDate,
+                                    child: InputDecorator(
+                                      decoration: const InputDecoration(
+                                        labelText: 'Prazo',
+                                      ),
+                                      child: Text(
+                                        _dueDate == null
+                                            ? 'Selecionar data'
+                                            : DateFormat(
+                                                'dd/MM/yyyy',
+                                              ).format(_dueDate!),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: InkWell(
-                                  onTap: _pickDueTime,
-                                  child: InputDecorator(
-                                    decoration: const InputDecoration(labelText: 'Horário do prazo (opcional)'),
-                                    child: Text(_dueTime == null ? 'Selecionar horário' : _dueTime!.format(context)),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: _pickDueTime,
+                                    child: InputDecorator(
+                                      decoration: const InputDecoration(
+                                        labelText:
+                                            'Horário do prazo (opcional)',
+                                      ),
+                                      child: Text(
+                                        _dueTime == null
+                                            ? 'Selecionar horário'
+                                            : _dueTime!.format(context),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -437,12 +599,17 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                               Expanded(
                                 child: TextField(
                                   controller: _checklistInputController,
-                                  decoration: const InputDecoration(hintText: 'Adicionar item à lista...'),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Adicionar item à lista...',
+                                  ),
                                   onSubmitted: (_) => _addChecklistItem(),
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              OutlinedButton(onPressed: _addChecklistItem, child: const Icon(Icons.add, size: 18)),
+                              OutlinedButton(
+                                onPressed: _addChecklistItem,
+                                child: const Icon(Icons.add, size: 18),
+                              ),
                             ],
                           ),
                           if (_checklist.isNotEmpty) ...[
@@ -451,20 +618,27 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceContainerHighest,
+                                    color: theme
+                                        .colorScheme
+                                        .surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
                                     children: [
                                       Checkbox(
                                         value: _checklist[i].done,
-                                        onChanged: (v) => _toggleChecklistItem(i, v ?? false),
+                                        onChanged: (v) =>
+                                            _toggleChecklistItem(i, v ?? false),
                                       ),
                                       Expanded(child: Text(_checklist[i].text)),
                                       IconButton(
-                                        onPressed: () => _removeChecklistItem(i),
+                                        onPressed: () =>
+                                            _removeChecklistItem(i),
                                         icon: const Icon(Icons.close, size: 18),
                                       ),
                                     ],
@@ -484,7 +658,9 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
-                      onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 12),
@@ -496,7 +672,11 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Text(widget.isEdit ? 'Salvar alterações' : 'Criar tarefa'),
+                          : Text(
+                              widget.isEdit
+                                  ? 'Salvar alterações'
+                                  : 'Criar tarefa',
+                            ),
                     ),
                   ],
                 ),
@@ -529,7 +709,12 @@ class _FormCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 16),
           ...children,
         ],

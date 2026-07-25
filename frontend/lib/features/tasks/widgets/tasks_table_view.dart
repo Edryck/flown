@@ -38,6 +38,7 @@ class TasksTableView extends StatefulWidget {
     required this.statusOrder,
     required this.onEdit,
     required this.onDelete,
+    required this.onViewSubtasks,
   });
 
   final List<Task> tasks;
@@ -45,6 +46,7 @@ class TasksTableView extends StatefulWidget {
   final List<String> statusOrder;
   final ValueChanged<Task> onEdit;
   final ValueChanged<Task> onDelete;
+  final ValueChanged<Task> onViewSubtasks;
 
   @override
   State<TasksTableView> createState() => _TasksTableViewState();
@@ -61,15 +63,18 @@ class _TasksTableViewState extends State<TasksTableView> {
     4: FixedColumnWidth(140),
     5: FixedColumnWidth(100),
     6: FlexColumnWidth(1.6),
-    7: FixedColumnWidth(48),
+    7: FixedColumnWidth(84),
   };
 
   bool _isOverdue(Task task) {
     if (task.completedAt != null || task.dueDate == null) return false;
     final today = DateTime.now();
     final dueDate = task.dueDate!;
-    return DateTime(dueDate.year, dueDate.month, dueDate.day)
-        .isBefore(DateTime(today.year, today.month, today.day));
+    return DateTime(
+      dueDate.year,
+      dueDate.month,
+      dueDate.day,
+    ).isBefore(DateTime(today.year, today.month, today.day));
   }
 
   void _toggleAll() {
@@ -90,7 +95,13 @@ class _TasksTableViewState extends State<TasksTableView> {
     });
   }
 
-  Widget _cell(Widget child, {EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 12)}) {
+  Widget _cell(
+    Widget child, {
+    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
+      horizontal: 12,
+      vertical: 12,
+    ),
+  }) {
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,
       child: Padding(padding: padding, child: child),
@@ -114,13 +125,18 @@ class _TasksTableViewState extends State<TasksTableView> {
         alignment: Alignment.center,
         child: Text(
           'Nenhuma tarefa encontrada',
-          style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
 
     final allSelected = _selected.length == widget.tasks.length;
-    const headerLabelStyle = TextStyle(fontWeight: FontWeight.w500, fontSize: 13);
+    const headerLabelStyle = TextStyle(
+      fontWeight: FontWeight.w500,
+      fontSize: 13,
+    );
 
     return Container(
       width: double.infinity,
@@ -135,9 +151,13 @@ class _TasksTableViewState extends State<TasksTableView> {
         defaultVerticalAlignment: TableCellVerticalAlignment.middle,
         children: [
           TableRow(
-            decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            ),
             children: [
-              _cell(Checkbox(value: allSelected, onChanged: (_) => _toggleAll())),
+              _cell(
+                Checkbox(value: allSelected, onChanged: (_) => _toggleAll()),
+              ),
               _cell(const Text('Nome da Tarefa', style: headerLabelStyle)),
               _cell(const Text('Projeto', style: headerLabelStyle)),
               _cell(const Text('Prioridade', style: headerLabelStyle)),
@@ -150,11 +170,22 @@ class _TasksTableViewState extends State<TasksTableView> {
           for (final task in widget.tasks)
             TableRow(
               decoration: BoxDecoration(
-                color: _isOverdue(task) ? context.semanticColors.priorityHighContainer.withValues(alpha: 0.3) : null,
-                border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+                color: _isOverdue(task)
+                    ? context.semanticColors.priorityHighContainer.withValues(
+                        alpha: 0.3,
+                      )
+                    : null,
+                border: Border(
+                  bottom: BorderSide(color: colorScheme.outlineVariant),
+                ),
               ),
               children: [
-                _cell(Checkbox(value: _selected.contains(task.id), onChanged: (_) => _toggleOne(task.id))),
+                _cell(
+                  Checkbox(
+                    value: _selected.contains(task.id),
+                    onChanged: (_) => _toggleOne(task.id),
+                  ),
+                ),
                 _cell(
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -164,8 +195,12 @@ class _TasksTableViewState extends State<TasksTableView> {
                         task.title,
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
-                          decoration: task.completedAt != null ? TextDecoration.lineThrough : null,
-                          color: task.completedAt != null ? colorScheme.onSurfaceVariant : null,
+                          decoration: task.completedAt != null
+                              ? TextDecoration.lineThrough
+                              : null,
+                          color: task.completedAt != null
+                              ? colorScheme.onSurfaceVariant
+                              : null,
                         ),
                       ),
                       if ((task.description ?? '').isNotEmpty)
@@ -173,7 +208,9 @@ class _TasksTableViewState extends State<TasksTableView> {
                           task.description!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
                     ],
                   ),
@@ -188,14 +225,21 @@ class _TasksTableViewState extends State<TasksTableView> {
                 _cell(
                   StatusBadge(
                     label: statusLabelPtBr(task.status),
-                    colorIndex: widget.statusOrder.indexOf(task.status).clamp(0, widget.statusOrder.length - 1),
+                    colorIndex: widget.statusOrder
+                        .indexOf(task.status)
+                        .clamp(0, widget.statusOrder.length - 1),
                   ),
                 ),
                 _cell(
                   Text(
-                    task.dueDate == null ? '—' : DateFormat('dd/MM/yyyy').format(task.dueDate!),
+                    task.dueDate == null
+                        ? '—'
+                        : DateFormat('dd/MM/yyyy').format(task.dueDate!),
                     style: _isOverdue(task)
-                        ? TextStyle(color: context.semanticColors.priorityHigh, fontWeight: FontWeight.w500)
+                        ? TextStyle(
+                            color: context.semanticColors.priorityHigh,
+                            fontWeight: FontWeight.w500,
+                          )
                         : null,
                   ),
                 ),
@@ -208,49 +252,70 @@ class _TasksTableViewState extends State<TasksTableView> {
                           child: LinearProgressIndicator(
                             value: (task.progress ?? 0) / 100,
                             minHeight: 6,
-                            backgroundColor: colorScheme.surfaceContainerHighest,
+                            backgroundColor:
+                                colorScheme.surfaceContainerHighest,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         '${task.progress ?? 0}%',
-                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 _cell(
-                  PopupMenuButton<_RowAction>(
-                    icon: const Icon(Icons.more_vert, size: 18),
-                    onSelected: (action) {
-                      switch (action) {
-                        case _RowAction.edit:
-                          widget.onEdit(task);
-                        case _RowAction.delete:
-                          widget.onDelete(task);
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: _RowAction.edit,
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_outlined, size: 16),
-                            SizedBox(width: 8),
-                            Text('Editar'),
-                          ],
-                        ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () => widget.onViewSubtasks(task),
+                        icon: const Icon(Icons.account_tree_outlined, size: 18),
+                        tooltip: 'Ver subtarefas',
+                        visualDensity: VisualDensity.compact,
                       ),
-                      PopupMenuItem(
-                        value: _RowAction.delete,
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, size: 16, color: colorScheme.error),
-                            const SizedBox(width: 8),
-                            Text('Excluir', style: TextStyle(color: colorScheme.error)),
-                          ],
-                        ),
+                      PopupMenuButton<_RowAction>(
+                        icon: const Icon(Icons.more_vert, size: 18),
+                        onSelected: (action) {
+                          switch (action) {
+                            case _RowAction.edit:
+                              widget.onEdit(task);
+                            case _RowAction.delete:
+                              widget.onDelete(task);
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: _RowAction.edit,
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_outlined, size: 16),
+                                SizedBox(width: 8),
+                                Text('Editar'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _RowAction.delete,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  size: 16,
+                                  color: colorScheme.error,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Excluir',
+                                  style: TextStyle(color: colorScheme.error),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

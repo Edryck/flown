@@ -25,21 +25,32 @@ class CompletionHeatmap extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     final countByDate = <DateTime, int>{
-      for (final e in entries) DateTime(e.date.year, e.date.month, e.date.day): e.count,
+      for (final e in entries)
+        DateTime(e.date.year, e.date.month, e.date.day): e.count,
     };
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
     final yearStart = DateTime(today.year, 1, 1);
     final yearEnd = DateTime(today.year, 12, 31);
-    final alignedStart = yearStart.subtract(Duration(days: yearStart.weekday % 7));
+    final alignedStart = yearStart.subtract(
+      Duration(days: yearStart.weekday % 7),
+    );
     final totalDays = yearEnd.difference(alignedStart).inDays + 1;
     final weeks = (totalDays / 7).ceil();
-    final maxCount = entries.isEmpty ? 0 : entries.map((e) => e.count).reduce((a, b) => a > b ? a : b);
+    final maxCount = entries.isEmpty
+        ? 0
+        : entries.map((e) => e.count).reduce((a, b) => a > b ? a : b);
 
     Color colorFor(int count) {
       if (count == 0) return colorScheme.surfaceContainerHighest;
-      final intensity = maxCount == 0 ? 1.0 : (count / maxCount).clamp(0.25, 1.0);
-      return Color.lerp(colorScheme.primary.withValues(alpha: 0.25), colorScheme.primary, intensity)!;
+      final intensity = maxCount == 0
+          ? 1.0
+          : (count / maxCount).clamp(0.25, 1.0);
+      return Color.lerp(
+        colorScheme.primary.withValues(alpha: 0.25),
+        colorScheme.primary,
+        intensity,
+      )!;
     }
 
     final grid = Row(
@@ -55,14 +66,17 @@ class CompletionHeatmap extends StatelessWidget {
                   Builder(
                     builder: (context) {
                       final date = alignedStart.add(Duration(days: w * 7 + d));
-                      if (date.isBefore(yearStart) || date.isAfter(yearEnd) || date.isAfter(todayDate)) {
+                      if (date.isBefore(yearStart) ||
+                          date.isAfter(yearEnd) ||
+                          date.isAfter(todayDate)) {
                         return const SizedBox(width: 12, height: 12);
                       }
                       final count = countByDate[date] ?? 0;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 3),
                         child: Tooltip(
-                          message: '${DateFormat('dd/MM').format(date)}: $count concluída${count == 1 ? '' : 's'}',
+                          message:
+                              '${DateFormat('dd/MM').format(date)}: $count concluída${count == 1 ? '' : 's'}',
                           child: Container(
                             width: 12,
                             height: 12,
@@ -95,7 +109,10 @@ class CompletionHeatmap extends StatelessWidget {
         if (gridWidth <= constraints.maxWidth) {
           return Center(child: grid);
         }
-        return SingleChildScrollView(scrollDirection: Axis.horizontal, child: grid);
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: grid,
+        );
       },
     );
   }

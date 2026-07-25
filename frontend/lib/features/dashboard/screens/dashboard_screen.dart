@@ -18,6 +18,7 @@ import '../../projects/providers/project_list_controller.dart';
 import '../../projects/providers/project_type_repository.dart';
 import '../../statistics/providers/dashboard_stats_repository.dart';
 import '../../tasks/providers/task_list_controller.dart';
+import '../../tasks/utils/task_hierarchy.dart';
 import '../../tasks/utils/task_status_colors.dart';
 import '../../tasks/widgets/task_form_dialog.dart';
 import '../utils/dashboard_derivations.dart';
@@ -70,7 +71,10 @@ class DashboardScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 48),
                 child: Center(child: Text('Erro ao carregar tarefas: $error')),
               ),
-              data: (tasks) {
+              data: (allTasks) {
+                // Subtarefas não contam pro Dashboard — só as tarefas de
+                // nível superior.
+                final tasks = topLevelTasks(allTasks);
                 final notes = noteListAsync.valueOrNull ?? const [];
                 final projects = projectListAsync.valueOrNull ?? const [];
                 final projectTypes =

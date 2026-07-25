@@ -37,7 +37,11 @@ import '../theme/theme_mode_provider.dart';
 ///     aqui) — a conta de verdade mora em Configurações agora, como
 ///     primeira seção.
 class TopNavBar extends ConsumerStatefulWidget {
-  const TopNavBar({super.key, required this.currentPath, required this.onNavigate});
+  const TopNavBar({
+    super.key,
+    required this.currentPath,
+    required this.onNavigate,
+  });
 
   final String currentPath;
   final ValueChanged<String> onNavigate;
@@ -77,7 +81,8 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
 
   bool _isActive(String tabPath) {
     if (tabPath == '/dashboard') return widget.currentPath == tabPath;
-    return widget.currentPath == tabPath || widget.currentPath.startsWith(tabPath);
+    return widget.currentPath == tabPath ||
+        widget.currentPath.startsWith(tabPath);
   }
 
   void _onSearchChanged(String value) {
@@ -139,7 +144,8 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
     final isDark = switch (themeMode) {
       ThemeMode.dark => true,
       ThemeMode.light => false,
-      ThemeMode.system => MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+      ThemeMode.system =>
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark,
     };
 
     return Material(
@@ -164,10 +170,19 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
                         color: colorScheme.primary,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.check_box_outlined, size: 20, color: colorScheme.onPrimary),
+                      child: Icon(
+                        Icons.check_box_outlined,
+                        size: 20,
+                        color: colorScheme.onPrimary,
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    Text('Flown', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                      'Flown',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -200,25 +215,29 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
                   },
                   child: OverlayPortal(
                     controller: _searchOverlayController,
-                    overlayChildBuilder: (context) => CompositedTransformFollower(
-                      link: _searchLayerLink,
-                      showWhenUnlinked: false,
-                      targetAnchor: Alignment.bottomLeft,
-                      offset: const Offset(-(_searchPanelWidth - _searchFieldWidth), 8),
-                      child: TapRegion(
-                        groupId: _searchGroupId,
-                        child: Align(
-                          alignment: Alignment.topLeft,
-                          child: _SearchResultsPanel(
-                            width: _searchPanelWidth,
-                            future: _searchFuture,
-                            onTapTask: _openTask,
-                            onTapProject: _openProject,
-                            onTapNote: _openNote,
+                    overlayChildBuilder: (context) =>
+                        CompositedTransformFollower(
+                          link: _searchLayerLink,
+                          showWhenUnlinked: false,
+                          targetAnchor: Alignment.bottomLeft,
+                          offset: const Offset(
+                            -(_searchPanelWidth - _searchFieldWidth),
+                            8,
+                          ),
+                          child: TapRegion(
+                            groupId: _searchGroupId,
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: _SearchResultsPanel(
+                                width: _searchPanelWidth,
+                                future: _searchFuture,
+                                onTapTask: _openTask,
+                                onTapProject: _openProject,
+                                onTapNote: _openNote,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
                     child: SizedBox(
                       width: _searchFieldWidth,
                       height: 36,
@@ -237,7 +256,8 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
                                 ),
                           hintText: 'Buscar tarefas, projetos, anotações...',
                           filled: true,
-                          fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          fillColor: colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.5),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide.none,
@@ -259,7 +279,10 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
                 onPressed: () => ref
                     .read(appThemeModeProvider.notifier)
                     .toggle(isDark ? Brightness.dark : Brightness.light),
-                icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 20),
+                icon: Icon(
+                  isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                  size: 20,
+                ),
               ),
             ],
           ),
@@ -270,7 +293,11 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
 }
 
 class _NavTab extends StatelessWidget {
-  const _NavTab({required this.label, required this.active, required this.onTap});
+  const _NavTab({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   final String label;
   final bool active;
@@ -293,7 +320,9 @@ class _NavTab extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: active ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+              color: active
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -346,7 +375,11 @@ class _SearchResultsPanel extends StatelessWidget {
               return const Padding(
                 padding: EdgeInsets.all(24),
                 child: Center(
-                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
               );
             }
@@ -364,7 +397,10 @@ class _SearchResultsPanel extends StatelessWidget {
             if (results == null || results.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text('Nenhum resultado encontrado', style: TextStyle(color: colorScheme.onSurfaceVariant)),
+                child: Text(
+                  'Nenhum resultado encontrado',
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
               );
             }
 
@@ -451,7 +487,12 @@ class _SearchSection extends StatelessWidget {
 }
 
 class _SearchResultTile extends StatelessWidget {
-  const _SearchResultTile({required this.icon, required this.title, this.subtitle, required this.onTap});
+  const _SearchResultTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String title;
@@ -470,10 +511,18 @@ class _SearchResultTile extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
             const SizedBox(width: 10),
-            Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis)),
+            Expanded(
+              child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
             if (subtitle != null) ...[
               const SizedBox(width: 8),
-              Text(subtitle!, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+              Text(
+                subtitle!,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
             ],
           ],
         ),

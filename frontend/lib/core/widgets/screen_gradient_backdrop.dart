@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 /// Wash decorativo de gradiente no topo da tela — mais escuro em cima,
 /// clareando até sumir num degradê, cobrindo só os primeiros ~260px (não a
-/// tela inteira). Pedido explícito do usuário pras telas de conteúdo
-/// principal (Dashboard, Tasks, Projects, Notes, Statistics); não existe
-/// equivalente no protótipo React.
+/// tela inteira). Aplicado nas telas de conteúdo principal (Dashboard,
+/// Tasks, Projects, Notes, Statistics); não existe equivalente no protótipo
+/// React.
 ///
 /// Fica atrás do conteúdo rolável (`Stack`) — como o `Positioned` não é
 /// opaco no fim do degradê, o `scaffoldBackgroundColor` normal (do

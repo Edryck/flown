@@ -6,6 +6,7 @@ import '../../../core/theme/semantic_colors.dart';
 import '../../../core/widgets/metric_card.dart';
 import '../../../core/widgets/screen_gradient_backdrop.dart';
 import '../../tasks/providers/task_list_controller.dart';
+import '../../tasks/utils/task_hierarchy.dart';
 import '../../tasks/utils/task_status_colors.dart';
 import '../providers/dashboard_stats_repository.dart';
 import '../utils/statistics_derivations.dart';
@@ -64,7 +65,9 @@ class StatisticsScreen extends ConsumerWidget {
                 ),
               ),
               data: (stats) {
-                final tasks = tasksAsync.valueOrNull ?? const [];
+                // Subtarefas não contam como tasks nas Estatísticas — só as
+                // de nível superior.
+                final tasks = topLevelTasks(tasksAsync.valueOrNull ?? const []);
                 final annualHeatmap =
                     annualStatsAsync.valueOrNull?.productivity.heatmap ??
                     const <HeatmapEntry>[];

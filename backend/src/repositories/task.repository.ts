@@ -146,11 +146,17 @@ export async function softDeleteTasksByProjectId(projectId: string, userId: stri
   });
 }
 
+// `parentTaskId: null` nas duas queries abaixo de proposito — subtarefas nao
+// contam pras estatisticas/dashboard (pedido explicito do usuario), so as
+// tasks de nivel superior. Isso alimenta tanto `GET /dashboard/stats` quanto
+// o heatmap/grafico mensal da tela de Estatisticas, ja que os dois vem
+// dessas mesmas duas funcoes.
 export async function findTasksForDashboardWindow(userId: string, since: Date) {
   return prisma.task.findMany({
     where: {
       userId,
       isDeleted: false,
+      parentTaskId: null,
       OR: [{ createdAt: { gte: since } }, { completedAt: { gte: since } }],
     },
     select: { status: true, priority: true, createdAt: true, completedAt: true, dueDate: true },
@@ -159,7 +165,7 @@ export async function findTasksForDashboardWindow(userId: string, since: Date) {
 
 export async function findAllActiveTasksSnapshot(userId: string) {
   return prisma.task.findMany({
-    where: { userId, isDeleted: false },
+    where: { userId, isDeleted: false, parentTaskId: null },
     select: { status: true, priority: true, dueDate: true, completedAt: true },
   });
 }

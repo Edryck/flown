@@ -11,7 +11,14 @@ import '../../auth/providers/auth_controller.dart';
 import '../../auth/providers/auth_repository.dart';
 import '../providers/settings_preferences.dart';
 
-enum _SettingsSection { account, appearance, tasks, notes, notifications, about }
+enum _SettingsSection {
+  account,
+  appearance,
+  tasks,
+  notes,
+  notifications,
+  about,
+}
 
 /// Tela de Configurações — tradução de Settings.tsx
 /// (docs/prototype/screens/settings.md): mesmos campos/controles dos cards
@@ -92,7 +99,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _savePreferences() async {
     setState(() => _savingPrefs = true);
     try {
-      await ref.read(settingsPreferencesControllerProvider.notifier).save(
+      await ref
+          .read(settingsPreferencesControllerProvider.notifier)
+          .save(
             SettingsPreferences(
               defaultPriority: _defaultPriority,
               defaultStatus: _defaultStatus,
@@ -125,17 +134,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _saveAccount() async {
     setState(() => _savingAccount = true);
     try {
-      await ref.read(authControllerProvider.notifier).updateProfile(
+      await ref
+          .read(authControllerProvider.notifier)
+          .updateProfile(
             name: _nameController.text.trim(),
             email: _emailController.text.trim(),
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Conta atualizada com sucesso')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Conta atualizada com sucesso')),
+        );
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.message : 'Erro ao atualizar a conta';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        final message = e is ApiException
+            ? e.message
+            : 'Erro ao atualizar a conta';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
       if (mounted) setState(() => _savingAccount = false);
@@ -160,23 +177,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 controller: currentController,
                 decoration: const InputDecoration(labelText: 'Senha atual'),
                 obscureText: true,
-                validator: (v) => (v == null || v.isEmpty) ? 'Obrigatório' : null,
+                validator: (v) =>
+                    (v == null || v.isEmpty) ? 'Obrigatório' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: newController,
                 decoration: const InputDecoration(labelText: 'Nova senha'),
                 obscureText: true,
-                validator: (v) => (v == null || v.length < 8) ? 'Mínimo de 8 caracteres' : null,
+                validator: (v) => (v == null || v.length < 8)
+                    ? 'Mínimo de 8 caracteres'
+                    : null,
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () {
-              if (formKey.currentState!.validate()) Navigator.pop(context, true);
+              if (formKey.currentState!.validate())
+                Navigator.pop(context, true);
             },
             child: const Text('Trocar senha'),
           ),
@@ -186,17 +210,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (confirmed == true && mounted) {
       try {
-        await ref.read(authRepositoryProvider).changePassword(
+        await ref
+            .read(authRepositoryProvider)
+            .changePassword(
               currentPassword: currentController.text,
               newPassword: newController.text,
             );
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Senha alterada com sucesso')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Senha alterada com sucesso')),
+          );
         }
       } catch (e) {
         if (mounted) {
-          final message = e is ApiException ? e.message : 'Erro ao trocar a senha';
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+          final message = e is ApiException
+              ? e.message
+              : 'Erro ao trocar a senha';
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
         }
       }
     }
@@ -209,10 +241,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Sair da conta?'),
-        content: const Text('Você vai precisar entrar de novo pra acessar suas tarefas.'),
+        content: const Text(
+          'Você vai precisar entrar de novo pra acessar suas tarefas.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sair')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sair'),
+          ),
         ],
       ),
     );
@@ -229,7 +269,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final isDark = switch (themeMode) {
       ThemeMode.dark => true,
       ThemeMode.light => false,
-      ThemeMode.system => MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+      ThemeMode.system =>
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark,
     };
     final authState = ref.watch(authControllerProvider);
     final user = authState.valueOrNull;
@@ -250,10 +291,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Configurações', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
+            Text(
+              'Configurações',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             Text(
               'Personalize o Flown de acordo com suas preferências.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 24),
             Container(
@@ -269,74 +317,101 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     SizedBox(
                       width: 220,
-                      child: _Sidebar(selected: _section, onSelected: (s) => setState(() => _section = s)),
+                      child: _Sidebar(
+                        selected: _section,
+                        onSelected: (s) => setState(() => _section = s),
+                      ),
                     ),
-                    VerticalDivider(width: 1, color: theme.colorScheme.outlineVariant),
+                    VerticalDivider(
+                      width: 1,
+                      color: theme.colorScheme.outlineVariant,
+                    ),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: switch (_section) {
                           _SettingsSection.account => _AccountSection(
-                              nameController: _nameController,
-                              emailController: _emailController,
-                              saving: _savingAccount,
-                              onSave: _saveAccount,
-                              onChangePassword: _changePassword,
-                              onLogout: _logout,
-                            ),
+                            nameController: _nameController,
+                            emailController: _emailController,
+                            saving: _savingAccount,
+                            onSave: _saveAccount,
+                            onChangePassword: _changePassword,
+                            onLogout: _logout,
+                          ),
                           _SettingsSection.appearance => _AppearanceSection(
-                              isDark: isDark,
-                              onChanged: (dark) => ref
-                                  .read(appThemeModeProvider.notifier)
-                                  .toggle(dark ? Brightness.light : Brightness.dark),
-                              particlesEnabled: _particlesEnabled,
-                              onParticlesEnabledChanged: (v) => setState(() => _particlesEnabled = v),
-                              particleCount: _particleCount,
-                              onParticleCountChanged: (v) => setState(() => _particleCount = v),
-                              particleSpeed: _particleSpeed,
-                              onParticleSpeedChanged: (v) => setState(() => _particleSpeed = v),
-                              particleLineDistance: _particleLineDistance,
-                              onParticleLineDistanceChanged: (v) => setState(() => _particleLineDistance = v),
-                              particlesInteractive: _particlesInteractive,
-                              onParticlesInteractiveChanged: (v) => setState(() => _particlesInteractive = v),
-                              saving: _savingPrefs,
-                              onSave: _savePreferences,
-                            ),
+                            isDark: isDark,
+                            onChanged: (dark) => ref
+                                .read(appThemeModeProvider.notifier)
+                                .toggle(
+                                  dark ? Brightness.light : Brightness.dark,
+                                ),
+                            particlesEnabled: _particlesEnabled,
+                            onParticlesEnabledChanged: (v) =>
+                                setState(() => _particlesEnabled = v),
+                            particleCount: _particleCount,
+                            onParticleCountChanged: (v) =>
+                                setState(() => _particleCount = v),
+                            particleSpeed: _particleSpeed,
+                            onParticleSpeedChanged: (v) =>
+                                setState(() => _particleSpeed = v),
+                            particleLineDistance: _particleLineDistance,
+                            onParticleLineDistanceChanged: (v) =>
+                                setState(() => _particleLineDistance = v),
+                            particlesInteractive: _particlesInteractive,
+                            onParticlesInteractiveChanged: (v) =>
+                                setState(() => _particlesInteractive = v),
+                            saving: _savingPrefs,
+                            onSave: _savePreferences,
+                          ),
                           _SettingsSection.tasks => _TaskPrefsSection(
-                              defaultPriority: _defaultPriority,
-                              onDefaultPriorityChanged: (v) => setState(() => _defaultPriority = v),
-                              defaultStatus: _defaultStatus,
-                              onDefaultStatusChanged: (v) => setState(() => _defaultStatus = v),
-                              showCompletedTasks: _showCompletedTasks,
-                              onShowCompletedTasksChanged: (v) => setState(() => _showCompletedTasks = v),
-                              autoArchiveDone: _autoArchiveDone,
-                              onAutoArchiveDoneChanged: (v) => setState(() => _autoArchiveDone = v),
-                              saving: _savingPrefs,
-                              onSave: _savePreferences,
-                            ),
+                            defaultPriority: _defaultPriority,
+                            onDefaultPriorityChanged: (v) =>
+                                setState(() => _defaultPriority = v),
+                            defaultStatus: _defaultStatus,
+                            onDefaultStatusChanged: (v) =>
+                                setState(() => _defaultStatus = v),
+                            showCompletedTasks: _showCompletedTasks,
+                            onShowCompletedTasksChanged: (v) =>
+                                setState(() => _showCompletedTasks = v),
+                            autoArchiveDone: _autoArchiveDone,
+                            onAutoArchiveDoneChanged: (v) =>
+                                setState(() => _autoArchiveDone = v),
+                            saving: _savingPrefs,
+                            onSave: _savePreferences,
+                          ),
                           _SettingsSection.notes => _NotePrefsSection(
-                              defaultNoteView: _defaultNoteView,
-                              onDefaultNoteViewChanged: (v) => setState(() => _defaultNoteView = v),
-                              autoSaveNotes: _autoSaveNotes,
-                              onAutoSaveNotesChanged: (v) => setState(() => _autoSaveNotes = v),
-                              showNotePreview: _showNotePreview,
-                              onShowNotePreviewChanged: (v) => setState(() => _showNotePreview = v),
-                              saving: _savingPrefs,
-                              onSave: _savePreferences,
-                            ),
-                          _SettingsSection.notifications => _NotificationsSection(
+                            defaultNoteView: _defaultNoteView,
+                            onDefaultNoteViewChanged: (v) =>
+                                setState(() => _defaultNoteView = v),
+                            autoSaveNotes: _autoSaveNotes,
+                            onAutoSaveNotesChanged: (v) =>
+                                setState(() => _autoSaveNotes = v),
+                            showNotePreview: _showNotePreview,
+                            onShowNotePreviewChanged: (v) =>
+                                setState(() => _showNotePreview = v),
+                            saving: _savingPrefs,
+                            onSave: _savePreferences,
+                          ),
+                          _SettingsSection.notifications =>
+                            _NotificationsSection(
                               notifyDueDate: _notifyDueDate,
-                              onNotifyDueDateChanged: (v) => setState(() => _notifyDueDate = v),
+                              onNotifyDueDateChanged: (v) =>
+                                  setState(() => _notifyDueDate = v),
                               notifyOverdue: _notifyOverdue,
-                              onNotifyOverdueChanged: (v) => setState(() => _notifyOverdue = v),
+                              onNotifyOverdueChanged: (v) =>
+                                  setState(() => _notifyOverdue = v),
                               notifyStatusChange: _notifyStatusChange,
-                              onNotifyStatusChangeChanged: (v) => setState(() => _notifyStatusChange = v),
+                              onNotifyStatusChangeChanged: (v) =>
+                                  setState(() => _notifyStatusChange = v),
                               notifyReminder: _notifyReminder,
-                              onNotifyReminderChanged: (v) => setState(() => _notifyReminder = v),
+                              onNotifyReminderChanged: (v) =>
+                                  setState(() => _notifyReminder = v),
                               saving: _savingPrefs,
                               onSave: _savePreferences,
                             ),
-                          _SettingsSection.about => _AboutSection(isDark: isDark),
+                          _SettingsSection.about => _AboutSection(
+                            isDark: isDark,
+                          ),
                         },
                       ),
                     ),
@@ -360,7 +435,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: ListTile(
                   leading: const Icon(Icons.delete_outline),
                   title: const Text('Lixeira'),
-                  subtitle: const Text('Projetos, tarefas e anotações excluídos'),
+                  subtitle: const Text(
+                    'Projetos, tarefas e anotações excluídos',
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.go('/trash'),
                 ),
@@ -381,11 +458,31 @@ class _Sidebar extends StatelessWidget {
   final ValueChanged<_SettingsSection> onSelected;
 
   static const _items = [
-    (section: _SettingsSection.account, icon: Icons.person_outline, label: 'Conta'),
-    (section: _SettingsSection.appearance, icon: Icons.palette_outlined, label: 'Aparência'),
-    (section: _SettingsSection.tasks, icon: Icons.check_box_outlined, label: 'Tarefas'),
-    (section: _SettingsSection.notes, icon: Icons.description_outlined, label: 'Anotações'),
-    (section: _SettingsSection.notifications, icon: Icons.notifications_outlined, label: 'Notificações'),
+    (
+      section: _SettingsSection.account,
+      icon: Icons.person_outline,
+      label: 'Conta',
+    ),
+    (
+      section: _SettingsSection.appearance,
+      icon: Icons.palette_outlined,
+      label: 'Aparência',
+    ),
+    (
+      section: _SettingsSection.tasks,
+      icon: Icons.check_box_outlined,
+      label: 'Tarefas',
+    ),
+    (
+      section: _SettingsSection.notes,
+      icon: Icons.description_outlined,
+      label: 'Anotações',
+    ),
+    (
+      section: _SettingsSection.notifications,
+      icon: Icons.notifications_outlined,
+      label: 'Notificações',
+    ),
     (section: _SettingsSection.about, icon: Icons.info_outline, label: 'Sobre'),
   ];
 
@@ -403,19 +500,26 @@ class _Sidebar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Material(
-                color: item.section == selected ? colorScheme.primary : Colors.transparent,
+                color: item.section == selected
+                    ? colorScheme.primary
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: () => onSelected(item.section),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     child: Row(
                       children: [
                         Icon(
                           item.icon,
                           size: 18,
-                          color: item.section == selected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                          color: item.section == selected
+                              ? colorScheme.onPrimary
+                              : colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 10),
                         Text(
@@ -423,7 +527,9 @@ class _Sidebar extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: item.section == selected ? colorScheme.onPrimary : colorScheme.onSurface,
+                            color: item.section == selected
+                                ? colorScheme.onPrimary
+                                : colorScheme.onSurface,
                           ),
                         ),
                       ],
@@ -448,7 +554,12 @@ class _SectionHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+      child: Text(
+        title,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -478,9 +589,15 @@ class _AccountSection extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const _SectionHeader(title: 'Conta'),
-        TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nome')),
+        TextField(
+          controller: nameController,
+          decoration: const InputDecoration(labelText: 'Nome'),
+        ),
         const SizedBox(height: 12),
-        TextField(controller: emailController, decoration: const InputDecoration(labelText: 'E-mail')),
+        TextField(
+          controller: emailController,
+          decoration: const InputDecoration(labelText: 'E-mail'),
+        ),
         const SizedBox(height: 16),
         Wrap(
           spacing: 12,
@@ -490,14 +607,28 @@ class _AccountSection extends StatelessWidget {
             FilledButton(
               onPressed: saving ? null : onSave,
               child: saving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Text('Salvar conta'),
             ),
-            OutlinedButton(onPressed: onChangePassword, child: const Text('Trocar senha')),
+            OutlinedButton(
+              onPressed: onChangePassword,
+              child: const Text('Trocar senha'),
+            ),
             TextButton.icon(
               onPressed: onLogout,
-              icon: Icon(Icons.logout, size: 18, color: theme.colorScheme.error),
-              label: Text('Sair', style: TextStyle(color: theme.colorScheme.error)),
+              icon: Icon(
+                Icons.logout,
+                size: 18,
+                color: theme.colorScheme.error,
+              ),
+              label: Text(
+                'Sair',
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
             ),
           ],
         ),
@@ -557,25 +688,35 @@ class _AppearanceSection extends StatelessWidget {
           padding: const EdgeInsets.only(top: 8, bottom: 4),
           child: Text(
             'Partículas do Modo Foco',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         Text(
           'Fundo animado e interativo da tela de foco',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 8),
         _SettingRow(
           label: 'Ativar partículas',
           description: 'Mostra o fundo animado no Modo Foco',
-          control: Switch(value: particlesEnabled, onChanged: onParticlesEnabledChanged),
+          control: Switch(
+            value: particlesEnabled,
+            onChanged: onParticlesEnabledChanged,
+          ),
         ),
         if (particlesEnabled) ...[
           const Divider(),
           _SettingRow(
             label: 'Reagir ao mouse',
             description: 'Partículas perto do cursor se destacam e se atraem',
-            control: Switch(value: particlesInteractive, onChanged: onParticlesInteractiveChanged),
+            control: Switch(
+              value: particlesInteractive,
+              onChanged: onParticlesInteractiveChanged,
+            ),
           ),
           const Divider(),
           _SliderSettingRow(
@@ -612,7 +753,11 @@ class _AppearanceSection extends StatelessWidget {
           child: FilledButton(
             onPressed: saving ? null : onSave,
             child: saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Text('Salvar alterações'),
           ),
         ),
@@ -652,11 +797,28 @@ class _SliderSettingRow extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-              Text(valueLabel, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                valueLabel,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
-          Slider(value: value, min: min, max: max, divisions: divisions, onChanged: onChanged),
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
+          ),
         ],
       ),
     );
@@ -701,12 +863,18 @@ class _TaskPrefsSection extends StatelessWidget {
             Expanded(
               child: DropdownButtonFormField<TaskPriority>(
                 initialValue: defaultPriority,
-                decoration: const InputDecoration(labelText: 'Prioridade padrão'),
+                decoration: const InputDecoration(
+                  labelText: 'Prioridade padrão',
+                ),
                 items: [
                   for (final p in TaskPriority.values)
-                    DropdownMenuItem(value: p, child: Text(PriorityBadge.labels[p]!)),
+                    DropdownMenuItem(
+                      value: p,
+                      child: Text(PriorityBadge.labels[p]!),
+                    ),
                 ],
-                onChanged: (v) => onDefaultPriorityChanged(v ?? TaskPriority.medium),
+                onChanged: (v) =>
+                    onDefaultPriorityChanged(v ?? TaskPriority.medium),
               ),
             ),
             const SizedBox(width: 16),
@@ -717,7 +885,10 @@ class _TaskPrefsSection extends StatelessWidget {
                 items: const [
                   DropdownMenuItem(value: 'backlog', child: Text('Backlog')),
                   DropdownMenuItem(value: 'todo', child: Text('A fazer')),
-                  DropdownMenuItem(value: 'in_progress', child: Text('Em andamento')),
+                  DropdownMenuItem(
+                    value: 'in_progress',
+                    child: Text('Em andamento'),
+                  ),
                 ],
                 onChanged: (v) => onDefaultStatusChanged(v ?? 'todo'),
               ),
@@ -728,13 +899,19 @@ class _TaskPrefsSection extends StatelessWidget {
         _SettingRow(
           label: 'Exibir tarefas concluídas',
           description: 'Mostra tarefas com status "Concluído" na listagem',
-          control: Switch(value: showCompletedTasks, onChanged: onShowCompletedTasksChanged),
+          control: Switch(
+            value: showCompletedTasks,
+            onChanged: onShowCompletedTasksChanged,
+          ),
         ),
         const Divider(),
         _SettingRow(
           label: 'Arquivar concluídas automaticamente',
           description: 'Move tarefas concluídas para o arquivo após 7 dias',
-          control: Switch(value: autoArchiveDone, onChanged: onAutoArchiveDoneChanged),
+          control: Switch(
+            value: autoArchiveDone,
+            onChanged: onAutoArchiveDoneChanged,
+          ),
         ),
         const SizedBox(height: 16),
         Align(
@@ -742,7 +919,11 @@ class _TaskPrefsSection extends StatelessWidget {
           child: FilledButton(
             onPressed: saving ? null : onSave,
             child: saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Text('Salvar alterações'),
           ),
         ),
@@ -792,13 +973,19 @@ class _NotePrefsSection extends StatelessWidget {
         _SettingRow(
           label: 'Salvar automaticamente',
           description: 'Salva anotações enquanto você digita',
-          control: Switch(value: autoSaveNotes, onChanged: onAutoSaveNotesChanged),
+          control: Switch(
+            value: autoSaveNotes,
+            onChanged: onAutoSaveNotesChanged,
+          ),
         ),
         const Divider(),
         _SettingRow(
           label: 'Exibir prévia das anotações',
           description: 'Mostra os primeiros caracteres do conteúdo no card',
-          control: Switch(value: showNotePreview, onChanged: onShowNotePreviewChanged),
+          control: Switch(
+            value: showNotePreview,
+            onChanged: onShowNotePreviewChanged,
+          ),
         ),
         const SizedBox(height: 16),
         Align(
@@ -806,7 +993,11 @@ class _NotePrefsSection extends StatelessWidget {
           child: FilledButton(
             onPressed: saving ? null : onSave,
             child: saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Text('Salvar alterações'),
           ),
         ),
@@ -850,25 +1041,37 @@ class _NotificationsSection extends StatelessWidget {
         _SettingRow(
           label: 'Prazo se aproximando',
           description: 'Notifica quando uma tarefa estiver prestes a vencer',
-          control: Switch(value: notifyDueDate, onChanged: onNotifyDueDateChanged),
+          control: Switch(
+            value: notifyDueDate,
+            onChanged: onNotifyDueDateChanged,
+          ),
         ),
         const Divider(),
         _SettingRow(
           label: 'Tarefas atrasadas',
           description: 'Notifica sobre tarefas com prazo vencido',
-          control: Switch(value: notifyOverdue, onChanged: onNotifyOverdueChanged),
+          control: Switch(
+            value: notifyOverdue,
+            onChanged: onNotifyOverdueChanged,
+          ),
         ),
         const Divider(),
         _SettingRow(
           label: 'Alteração de status',
           description: 'Notifica quando o status de uma tarefa for alterado',
-          control: Switch(value: notifyStatusChange, onChanged: onNotifyStatusChangeChanged),
+          control: Switch(
+            value: notifyStatusChange,
+            onChanged: onNotifyStatusChangeChanged,
+          ),
         ),
         const Divider(),
         _SettingRow(
           label: 'Lembretes diários',
           description: 'Envia um resumo das tarefas do dia pela manhã',
-          control: Switch(value: notifyReminder, onChanged: onNotifyReminderChanged),
+          control: Switch(
+            value: notifyReminder,
+            onChanged: onNotifyReminderChanged,
+          ),
         ),
         const SizedBox(height: 16),
         Align(
@@ -876,7 +1079,11 @@ class _NotificationsSection extends StatelessWidget {
           child: FilledButton(
             onPressed: saving ? null : onSave,
             child: saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Text('Salvar alterações'),
           ),
         ),
@@ -900,16 +1107,33 @@ class _AboutSection extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(child: _InfoItem(label: 'Versão', value: '1.0.0-beta')),
-            Expanded(child: _InfoItem(label: 'Ambiente', value: kDebugMode ? 'Desenvolvimento' : 'Produção')),
+            const Expanded(
+              child: _InfoItem(label: 'Versão', value: '1.0.0-beta'),
+            ),
+            Expanded(
+              child: _InfoItem(
+                label: 'Ambiente',
+                value: kDebugMode ? 'Desenvolvimento' : 'Produção',
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(child: _InfoItem(label: 'Última atualização', value: 'Julho de 2026')),
-            Expanded(child: _InfoItem(label: 'Tema ativo', value: isDark ? 'Escuro' : 'Claro')),
+            const Expanded(
+              child: _InfoItem(
+                label: 'Última atualização',
+                value: 'Julho de 2026',
+              ),
+            ),
+            Expanded(
+              child: _InfoItem(
+                label: 'Tema ativo',
+                value: isDark ? 'Escuro' : 'Claro',
+              ),
+            ),
           ],
         ),
       ],
@@ -937,8 +1161,18 @@ class _ThemeSegmentedControl extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _ThemeOption(icon: Icons.wb_sunny_outlined, label: 'Claro', selected: !isDark, onTap: () => onChanged(false)),
-          _ThemeOption(icon: Icons.nightlight_outlined, label: 'Escuro', selected: isDark, onTap: () => onChanged(true)),
+          _ThemeOption(
+            icon: Icons.wb_sunny_outlined,
+            label: 'Claro',
+            selected: !isDark,
+            onTap: () => onChanged(false),
+          ),
+          _ThemeOption(
+            icon: Icons.nightlight_outlined,
+            label: 'Escuro',
+            selected: isDark,
+            onTap: () => onChanged(true),
+          ),
         ],
       ),
     );
@@ -946,7 +1180,12 @@ class _ThemeSegmentedControl extends StatelessWidget {
 }
 
 class _ThemeOption extends StatelessWidget {
-  const _ThemeOption({required this.icon, required this.label, required this.selected, required this.onTap});
+  const _ThemeOption({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -959,7 +1198,9 @@ class _ThemeOption extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Material(
-      color: selected ? theme.cardTheme.color ?? colorScheme.surface : Colors.transparent,
+      color: selected
+          ? theme.cardTheme.color ?? colorScheme.surface
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       elevation: selected ? 1 : 0,
       child: InkWell(
@@ -970,14 +1211,22 @@ class _ThemeOption extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant),
+              Icon(
+                icon,
+                size: 16,
+                color: selected
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+                  color: selected
+                      ? colorScheme.onSurface
+                      : colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -989,7 +1238,11 @@ class _ThemeOption extends StatelessWidget {
 }
 
 class _SettingRow extends StatelessWidget {
-  const _SettingRow({required this.label, required this.description, required this.control});
+  const _SettingRow({
+    required this.label,
+    required this.description,
+    required this.control,
+  });
 
   final String label;
   final String description;
@@ -1008,11 +1261,19 @@ class _SettingRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   description,
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -1038,7 +1299,12 @@ class _InfoItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 2),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
       ],

@@ -11,7 +11,10 @@ import '../../../core/models/task.dart';
 /// Depois entra qualquer status "órfão" que apareça numa task sem projeto
 /// (não validado contra nenhum `ProjectType`, ver `task.service.ts`), pra
 /// nenhuma task ficar sem coluna/cor.
-List<String> resolveStatusOrder(Iterable<ProjectType> projectTypes, Iterable<Task> tasks) {
+List<String> resolveStatusOrder(
+  Iterable<ProjectType> projectTypes,
+  Iterable<Task> tasks,
+) {
   final seen = <String>[];
   for (final type in projectTypes) {
     for (final status in type.availableStatus) {

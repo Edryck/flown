@@ -7,7 +7,9 @@ import '../../../core/widgets/screen_gradient_backdrop.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../../projects/providers/project_type_repository.dart';
 import '../providers/task_list_controller.dart';
+import '../utils/task_hierarchy.dart';
 import '../utils/task_status_colors.dart';
+import '../widgets/subtasks_graph_dialog.dart';
 import '../widgets/task_filter_dialog.dart';
 import '../widgets/task_form_dialog.dart';
 import '../widgets/tasks_calendar_view.dart';
@@ -191,6 +193,8 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
 
   void _edit(Task task) => showTaskFormDialog(context, task: task);
 
+  void _viewSubtasks(Task task) => showSubtasksGraphDialog(context, task: task);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -304,7 +308,11 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 48),
                 child: Center(child: Text('Erro ao carregar tarefas: $error')),
               ),
-              data: (tasks) {
+              data: (allTasks) {
+                // Subtarefas não aparecem misturadas nas 3 views de listagem
+                // — só são acessíveis pelo grafo da task-mãe (`_viewSubtasks`,
+                // `SubtasksGraphDialog`). Ver `task_hierarchy.dart`.
+                final tasks = topLevelTasks(allTasks);
                 final projects = projectListAsync.valueOrNull ?? const [];
                 final projectsById = {for (final p in projects) p.id: p};
                 final projectNamesById = {
@@ -321,6 +329,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     statusOrder: statusOrder,
                     onEdit: _edit,
                     onDelete: _confirmDelete,
+                    onViewSubtasks: _viewSubtasks,
                   ),
                   _TasksView.kanban => TasksKanbanView(
                     tasks: filtered,
@@ -330,10 +339,12 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                         .read(taskListControllerProvider.notifier)
                         .updateStatus(taskId, newStatus),
                     onTapTask: _edit,
+                    onViewSubtasks: _viewSubtasks,
                   ),
                   _TasksView.calendar => TasksCalendarView(
                     tasks: tasks,
                     onTapTask: _edit,
+                    onViewSubtasks: _viewSubtasks,
                   ),
                 };
               },

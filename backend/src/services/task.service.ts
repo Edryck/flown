@@ -110,7 +110,11 @@ export async function create(userId: string, data: TaskInput) {
     await assertParentTask(data.parentTaskId, userId);
   }
   const completedAt = data.status === COMPLETED_STATUS ? new Date() : null;
-  return createTask(userId, { ...data, completedAt });
+  // Subtarefa nao tem vencimento proprio — herda o da tarefa-mae (se o pai
+  // venceu, ela venceu tambem). Ignora qualquer dueDate que o caller mande
+  // junto com um parentTaskId.
+  const dueDate = data.parentTaskId ? null : data.dueDate;
+  return createTask(userId, { ...data, dueDate, completedAt });
 }
 
 export async function list(
@@ -149,6 +153,12 @@ export async function update(id: string, userId: string, data: Partial<TaskInput
     await assertParentTask(data.parentTaskId, userId);
   }
 
+  // Mesma regra do create() — subtarefa nunca tem vencimento proprio, so o
+  // da tarefa-mae. `isSubtask` considera tanto uma task que ja era subtask
+  // quanto uma que esta virando subtask nesta mesma requisicao; forca
+  // `dueDate: null` mesmo que o caller tenha mandado um valor junto.
+  const isSubtask = Boolean(data.parentTaskId !== undefined ? data.parentTaskId : task.parentTaskId);
+
   let completedAt: Date | null | undefined;
   const statusChanged = Boolean(data.status && data.status !== task.status);
   if (statusChanged) {
@@ -170,6 +180,7 @@ export async function update(id: string, userId: string, data: Partial<TaskInput
     ...data,
     ...(progress !== undefined ? { progress } : {}),
     ...(completedAt !== undefined ? { completedAt } : {}),
+    ...(isSubtask ? { dueDate: null } : {}),
   });
   if (!updated) {
     throw new AppError(404, "Task not found");

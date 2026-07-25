@@ -17,7 +17,7 @@ class MetricTrend {
 
 /// Card de métrica única (valor grande + título + ícone grande sangrando
 /// pela borda + trend opcional). Redesenhado a partir de uma referência
-/// visual (`image.png`, raiz do repo) pedida pelo usuário — não é mais fiel
+/// visual (`image.png`, raiz do repo) — não é mais fiel
 /// ao MetricCard.tsx do protótipo (docs/prototype/components/metric-card.md,
 /// que usava um ícone pequeno num chip colorido): ícone grande, meio cortado
 /// pelo canto do card, e o card mais baixo/largo. Mantém a mesma animação de
@@ -44,14 +44,18 @@ class MetricCard extends StatefulWidget {
   State<MetricCard> createState() => _MetricCardState();
 }
 
-class _MetricCardState extends State<MetricCard> with SingleTickerProviderStateMixin {
+class _MetricCardState extends State<MetricCard>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _entrance;
   bool _hovering = false;
 
   @override
   void initState() {
     super.initState();
-    _entrance = AnimationController(vsync: this, duration: const Duration(milliseconds: 300))..forward();
+    _entrance = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    )..forward();
   }
 
   @override
@@ -71,7 +75,10 @@ class _MetricCardState extends State<MetricCard> with SingleTickerProviderStateM
     return FadeTransition(
       opacity: curved,
       child: SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(curved),
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.08),
+          end: Offset.zero,
+        ).animate(curved),
         child: MouseRegion(
           onEnter: (_) => setState(() => _hovering = true),
           onExit: (_) => setState(() => _hovering = false),
@@ -101,7 +108,11 @@ class _MetricCardState extends State<MetricCard> with SingleTickerProviderStateM
                   top: 0,
                   bottom: 0,
                   child: Center(
-                    child: Icon(widget.icon, size: 92, color: accentColor.withValues(alpha: 0.9)),
+                    child: Icon(
+                      widget.icon,
+                      size: 92,
+                      color: accentColor.withValues(alpha: 0.9),
+                    ),
                   ),
                 ),
                 Padding(
@@ -113,12 +124,16 @@ class _MetricCardState extends State<MetricCard> with SingleTickerProviderStateM
                     children: [
                       Text(
                         widget.value,
-                        style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         widget.title,
-                        style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       if (widget.subtitle != null) ...[
                         const SizedBox(height: 2),
@@ -135,7 +150,9 @@ class _MetricCardState extends State<MetricCard> with SingleTickerProviderStateM
                         Text(
                           '${widget.trend!.positive ? '↑' : '↓'} ${widget.trend!.value}',
                           style: TextStyle(
-                            color: widget.trend!.positive ? semantic.priorityLow : semantic.priorityHigh,
+                            color: widget.trend!.positive
+                                ? semantic.priorityLow
+                                : semantic.priorityHigh,
                             fontWeight: FontWeight.w500,
                             fontSize: 12,
                           ),

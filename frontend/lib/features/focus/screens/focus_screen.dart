@@ -17,6 +17,7 @@ import '../../projects/providers/project_list_controller.dart';
 import '../../settings/providers/settings_preferences.dart';
 import '../../tasks/providers/task_list_controller.dart';
 import '../../tasks/providers/task_repository.dart';
+import '../../tasks/utils/task_hierarchy.dart';
 import '../providers/focus_session_repository.dart';
 
 /// Tela de foco imersiva em tela cheia — tradução fiel de FocusMode.tsx
@@ -43,7 +44,7 @@ import '../providers/focus_session_repository.dart';
 /// ("Done", `task.service.ts`).
 ///
 /// Fundo com partículas interativas (`particles_network`, sem referência no
-/// protótipo — pedido à parte do usuário), configurável em Configurações →
+/// protótipo), configurável em Configurações →
 /// Aparência (`SettingsPreferences.particles*`). Pra reagir ao mouse só
 /// quando ele está sobre o fundo (fora do cartão/timer/botões, não em cima
 /// deles) sem precisar de nenhum truque manual: o `ParticleNetwork` fica
@@ -197,6 +198,18 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
         .updateTask(task.id, TaskInput(checklist: updated, progress: progress));
   }
 
+  /// Marca/desmarca uma subtarefa como concluída — o progresso da task-mãe
+  /// (% de subtarefas concluídas) é recalculado automaticamente pelo
+  /// backend a cada mudança de status de subtarefa (`task.service.ts`).
+  void _toggleSubtask(Task subtask, bool done) {
+    ref
+        .read(taskListControllerProvider.notifier)
+        .updateTask(
+          subtask.id,
+          TaskInput(status: done ? _doneStatus : _inProgressStatus),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(taskListControllerProvider);
@@ -229,7 +242,9 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
             ),
           ),
           data: (tasks) {
-            final focusTask = _pickFocusTask(tasks);
+            // Subtarefa nunca é a task em foco em si — só aparece na lista
+            // dentro do card da tarefa-mãe.
+            final focusTask = _pickFocusTask(topLevelTasks(tasks));
 
             // Fundo de partículas antes do `if`/`else` de propósito — igual
             // com nenhuma task "In Progress" (estado vazio), a tela continua
@@ -396,8 +411,10 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
                               projectName: focusTask.projectId == null
                                   ? null
                                   : projectNamesById[focusTask.projectId],
+                              subtasks: subtasksOf(focusTask, tasks),
                               onToggleChecklistItem: (index, done) =>
                                   _toggleChecklistItem(focusTask, index, done),
+                              onToggleSubtask: _toggleSubtask,
                             ),
                             const SizedBox(height: 32),
                             Row(
@@ -489,12 +506,16 @@ class _FocusTaskCard extends StatelessWidget {
   const _FocusTaskCard({
     required this.task,
     required this.projectName,
+    required this.subtasks,
     required this.onToggleChecklistItem,
+    required this.onToggleSubtask,
   });
 
   final Task task;
   final String? projectName;
+  final List<Task> subtasks;
   final void Function(int index, bool done) onToggleChecklistItem;
+  final void Function(Task subtask, bool done) onToggleSubtask;
 
   @override
   Widget build(BuildContext context) {
@@ -593,6 +614,56 @@ class _FocusTaskCard extends StatelessWidget {
               backgroundColor: colorScheme.surfaceContainerHighest,
             ),
           ),
+          if (subtasks.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text(
+              'Subtarefas',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (final subtask in subtasks)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.6,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Checkbox(
+                        value: subtask.status == 'Done',
+                        onChanged: (value) =>
+                            onToggleSubtask(subtask, value ?? false),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          subtask.title,
+                          style: subtask.status == 'Done'
+                              ? TextStyle(
+                                  decoration: TextDecoration.lineThrough,
+                                  color: colorScheme.onSurfaceVariant,
+                                )
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      PriorityBadge(priority: subtask.priority),
+                    ],
+                  ),
+                ),
+              ),
+          ],
           if (checklist.isNotEmpty) ...[
             const SizedBox(height: 24),
             Text(

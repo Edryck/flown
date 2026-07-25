@@ -18,7 +18,10 @@ class TaskFilterSelection {
   final Set<TaskPriority> priorities;
   final bool onlyOverdue;
 
-  int get activeCount => (statuses.isNotEmpty ? 1 : 0) + (priorities.isNotEmpty ? 1 : 0) + (onlyOverdue ? 1 : 0);
+  int get activeCount =>
+      (statuses.isNotEmpty ? 1 : 0) +
+      (priorities.isNotEmpty ? 1 : 0) +
+      (onlyOverdue ? 1 : 0);
 }
 
 /// Abre o diálogo de filtro da tela de Tasks (modo lista) — botão "Filtrar"
@@ -33,7 +36,8 @@ Future<TaskFilterSelection?> showTaskFilterDialog(
 }) {
   return showDialog<TaskFilterSelection>(
     context: context,
-    builder: (context) => _TaskFilterDialog(statusOptions: statusOptions, initial: initial),
+    builder: (context) =>
+        _TaskFilterDialog(statusOptions: statusOptions, initial: initial),
   );
 }
 
@@ -109,7 +113,8 @@ class _TaskFilterDialogState extends State<_TaskFilterDialog> {
               const SizedBox(height: 8),
               CheckboxListTile(
                 value: _onlyOverdue,
-                onChanged: (value) => setState(() => _onlyOverdue = value ?? false),
+                onChanged: (value) =>
+                    setState(() => _onlyOverdue = value ?? false),
                 title: const Text('Somente atrasadas'),
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
@@ -127,11 +132,18 @@ class _TaskFilterDialogState extends State<_TaskFilterDialog> {
           }),
           child: const Text('Limpar'),
         ),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
         FilledButton(
           onPressed: () => Navigator.pop(
             context,
-            TaskFilterSelection(statuses: _statuses, priorities: _priorities, onlyOverdue: _onlyOverdue),
+            TaskFilterSelection(
+              statuses: _statuses,
+              priorities: _priorities,
+              onlyOverdue: _onlyOverdue,
+            ),
           ),
           child: const Text('Aplicar'),
         ),

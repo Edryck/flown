@@ -61,7 +61,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       // Fora do ShellRoute de propósito: igual ao protótipo (routes.tsx),
       // /focus é a única rota sem TopNavBar/FAB — tela cheia imersiva.
@@ -75,16 +78,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
         routes: [
-          GoRoute(path: '/dashboard', builder: (context, state) => const DashboardScreen()),
+          GoRoute(
+            path: '/dashboard',
+            builder: (context, state) => const DashboardScreen(),
+          ),
           // Sem rotas '/projects/new', '/tasks/new' nem '/tasks/:id/edit' de
           // propósito — criar/editar projeto e tarefa agora são modais
           // (`showProjectFormDialog`/`showTaskFormDialog`), não telas.
-          GoRoute(path: '/projects', builder: (context, state) => const ProjectsScreen()),
-          GoRoute(path: '/tasks', builder: (context, state) => const TasksScreen()),
-          GoRoute(path: '/notes', builder: (context, state) => const NotesScreen()),
-          GoRoute(path: '/statistics', builder: (context, state) => const StatisticsScreen()),
-          GoRoute(path: '/trash', builder: (context, state) => const TrashScreen()),
-          GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+          GoRoute(
+            path: '/projects',
+            builder: (context, state) => const ProjectsScreen(),
+          ),
+          GoRoute(
+            path: '/tasks',
+            builder: (context, state) => const TasksScreen(),
+          ),
+          GoRoute(
+            path: '/notes',
+            builder: (context, state) => const NotesScreen(),
+          ),
+          GoRoute(
+            path: '/statistics',
+            builder: (context, state) => const StatisticsScreen(),
+          ),
+          GoRoute(
+            path: '/trash',
+            builder: (context, state) => const TrashScreen(),
+          ),
+          GoRoute(
+            path: '/settings',
+            builder: (context, state) => const SettingsScreen(),
+          ),
         ],
       ),
     ],
