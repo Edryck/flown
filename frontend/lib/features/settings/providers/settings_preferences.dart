@@ -18,6 +18,11 @@ const _kNotifyDueDate = 'settings.notifyDueDate';
 const _kNotifyOverdue = 'settings.notifyOverdue';
 const _kNotifyStatusChange = 'settings.notifyStatusChange';
 const _kNotifyReminder = 'settings.notifyReminder';
+const _kParticlesEnabled = 'settings.particlesEnabled';
+const _kParticleCount = 'settings.particleCount';
+const _kParticleSpeed = 'settings.particleSpeed';
+const _kParticleLineDistance = 'settings.particleLineDistance';
+const _kParticlesInteractive = 'settings.particlesInteractive';
 
 /// Preferências de Settings.tsx (docs/prototype/screens/settings.md) que
 /// não têm campo nenhum no backend real (`PATCH /users/me` só aceita
@@ -42,6 +47,11 @@ class SettingsPreferences {
     this.notifyOverdue = true,
     this.notifyStatusChange = false,
     this.notifyReminder = true,
+    this.particlesEnabled = true,
+    this.particleCount = 80,
+    this.particleSpeed = 0.6,
+    this.particleLineDistance = 120,
+    this.particlesInteractive = true,
   });
 
   final TaskPriority defaultPriority;
@@ -62,6 +72,19 @@ class SettingsPreferences {
   final bool notifyStatusChange;
   final bool notifyReminder;
 
+  /// Configuração do fundo de partículas interativas do Modo Foco
+  /// (`particles_network`, `ParticleNetwork` em `focus_screen.dart`) —
+  /// ajustável no tópico "Aparência" das Configurações, pedido explícito do
+  /// usuário (sem referência no protótipo, que não tinha esse efeito).
+  final bool particlesEnabled;
+  final int particleCount;
+  final double particleSpeed;
+  final double particleLineDistance;
+
+  /// Liga `touchActivation`/`hoverEffect` do `ParticleNetwork` — sem isso,
+  /// as partículas só se movem sozinhas, sem reagir ao mouse/toque.
+  final bool particlesInteractive;
+
   SettingsPreferences copyWith({
     TaskPriority? defaultPriority,
     String? defaultStatus,
@@ -74,6 +97,11 @@ class SettingsPreferences {
     bool? notifyOverdue,
     bool? notifyStatusChange,
     bool? notifyReminder,
+    bool? particlesEnabled,
+    int? particleCount,
+    double? particleSpeed,
+    double? particleLineDistance,
+    bool? particlesInteractive,
   }) {
     return SettingsPreferences(
       defaultPriority: defaultPriority ?? this.defaultPriority,
@@ -87,6 +115,11 @@ class SettingsPreferences {
       notifyOverdue: notifyOverdue ?? this.notifyOverdue,
       notifyStatusChange: notifyStatusChange ?? this.notifyStatusChange,
       notifyReminder: notifyReminder ?? this.notifyReminder,
+      particlesEnabled: particlesEnabled ?? this.particlesEnabled,
+      particleCount: particleCount ?? this.particleCount,
+      particleSpeed: particleSpeed ?? this.particleSpeed,
+      particleLineDistance: particleLineDistance ?? this.particleLineDistance,
+      particlesInteractive: particlesInteractive ?? this.particlesInteractive,
     );
   }
 }
@@ -111,6 +144,11 @@ class SettingsPreferencesController extends _$SettingsPreferencesController {
       notifyOverdue: prefs.getBool(_kNotifyOverdue) ?? true,
       notifyStatusChange: prefs.getBool(_kNotifyStatusChange) ?? false,
       notifyReminder: prefs.getBool(_kNotifyReminder) ?? true,
+      particlesEnabled: prefs.getBool(_kParticlesEnabled) ?? true,
+      particleCount: prefs.getInt(_kParticleCount) ?? 80,
+      particleSpeed: prefs.getDouble(_kParticleSpeed) ?? 0.6,
+      particleLineDistance: prefs.getDouble(_kParticleLineDistance) ?? 120,
+      particlesInteractive: prefs.getBool(_kParticlesInteractive) ?? true,
     );
   }
 
@@ -123,6 +161,11 @@ class SettingsPreferencesController extends _$SettingsPreferencesController {
     await sp.setString(_kDefaultNoteView, prefs.defaultNoteView);
     await sp.setBool(_kAutoSaveNotes, prefs.autoSaveNotes);
     await sp.setBool(_kShowNotePreview, prefs.showNotePreview);
+    await sp.setBool(_kParticlesEnabled, prefs.particlesEnabled);
+    await sp.setInt(_kParticleCount, prefs.particleCount);
+    await sp.setDouble(_kParticleSpeed, prefs.particleSpeed);
+    await sp.setDouble(_kParticleLineDistance, prefs.particleLineDistance);
+    await sp.setBool(_kParticlesInteractive, prefs.particlesInteractive);
     await sp.setBool(_kNotifyDueDate, prefs.notifyDueDate);
     await sp.setBool(_kNotifyOverdue, prefs.notifyOverdue);
     await sp.setBool(_kNotifyStatusChange, prefs.notifyStatusChange);

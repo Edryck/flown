@@ -50,6 +50,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _notifyOverdue = true;
   bool _notifyStatusChange = false;
   bool _notifyReminder = true;
+  bool _particlesEnabled = true;
+  int _particleCount = 80;
+  double _particleSpeed = 0.6;
+  double _particleLineDistance = 120;
+  bool _particlesInteractive = true;
   bool _savingPrefs = false;
 
   bool _accountHydrated = false;
@@ -76,6 +81,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _notifyOverdue = prefs.notifyOverdue;
     _notifyStatusChange = prefs.notifyStatusChange;
     _notifyReminder = prefs.notifyReminder;
+    _particlesEnabled = prefs.particlesEnabled;
+    _particleCount = prefs.particleCount;
+    _particleSpeed = prefs.particleSpeed;
+    _particleLineDistance = prefs.particleLineDistance;
+    _particlesInteractive = prefs.particlesInteractive;
     _prefsHydrated = true;
   }
 
@@ -95,6 +105,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               notifyOverdue: _notifyOverdue,
               notifyStatusChange: _notifyStatusChange,
               notifyReminder: _notifyReminder,
+              particlesEnabled: _particlesEnabled,
+              particleCount: _particleCount,
+              particleSpeed: _particleSpeed,
+              particleLineDistance: _particleLineDistance,
+              particlesInteractive: _particlesInteractive,
             ),
           );
       if (mounted) {
@@ -274,6 +289,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               onChanged: (dark) => ref
                                   .read(appThemeModeProvider.notifier)
                                   .toggle(dark ? Brightness.light : Brightness.dark),
+                              particlesEnabled: _particlesEnabled,
+                              onParticlesEnabledChanged: (v) => setState(() => _particlesEnabled = v),
+                              particleCount: _particleCount,
+                              onParticleCountChanged: (v) => setState(() => _particleCount = v),
+                              particleSpeed: _particleSpeed,
+                              onParticleSpeedChanged: (v) => setState(() => _particleSpeed = v),
+                              particleLineDistance: _particleLineDistance,
+                              onParticleLineDistanceChanged: (v) => setState(() => _particleLineDistance = v),
+                              particlesInteractive: _particlesInteractive,
+                              onParticlesInteractiveChanged: (v) => setState(() => _particlesInteractive = v),
+                              saving: _savingPrefs,
+                              onSave: _savePreferences,
                             ),
                           _SettingsSection.tasks => _TaskPrefsSection(
                               defaultPriority: _defaultPriority,
@@ -480,13 +507,41 @@ class _AccountSection extends StatelessWidget {
 }
 
 class _AppearanceSection extends StatelessWidget {
-  const _AppearanceSection({required this.isDark, required this.onChanged});
+  const _AppearanceSection({
+    required this.isDark,
+    required this.onChanged,
+    required this.particlesEnabled,
+    required this.onParticlesEnabledChanged,
+    required this.particleCount,
+    required this.onParticleCountChanged,
+    required this.particleSpeed,
+    required this.onParticleSpeedChanged,
+    required this.particleLineDistance,
+    required this.onParticleLineDistanceChanged,
+    required this.particlesInteractive,
+    required this.onParticlesInteractiveChanged,
+    required this.saving,
+    required this.onSave,
+  });
 
   final bool isDark;
   final ValueChanged<bool> onChanged;
+  final bool particlesEnabled;
+  final ValueChanged<bool> onParticlesEnabledChanged;
+  final int particleCount;
+  final ValueChanged<int> onParticleCountChanged;
+  final double particleSpeed;
+  final ValueChanged<double> onParticleSpeedChanged;
+  final double particleLineDistance;
+  final ValueChanged<double> onParticleLineDistanceChanged;
+  final bool particlesInteractive;
+  final ValueChanged<bool> onParticlesInteractiveChanged;
+  final bool saving;
+  final VoidCallback onSave;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -497,7 +552,113 @@ class _AppearanceSection extends StatelessWidget {
           description: 'Escolha entre modo claro e escuro',
           control: _ThemeSegmentedControl(isDark: isDark, onChanged: onChanged),
         ),
+        const Divider(),
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: Text(
+            'Partículas do Modo Foco',
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+        Text(
+          'Fundo animado e interativo da tela de foco',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        _SettingRow(
+          label: 'Ativar partículas',
+          description: 'Mostra o fundo animado no Modo Foco',
+          control: Switch(value: particlesEnabled, onChanged: onParticlesEnabledChanged),
+        ),
+        if (particlesEnabled) ...[
+          const Divider(),
+          _SettingRow(
+            label: 'Reagir ao mouse',
+            description: 'Partículas perto do cursor se destacam e se atraem',
+            control: Switch(value: particlesInteractive, onChanged: onParticlesInteractiveChanged),
+          ),
+          const Divider(),
+          _SliderSettingRow(
+            label: 'Quantidade de partículas',
+            valueLabel: '$particleCount',
+            value: particleCount.toDouble(),
+            min: 10,
+            max: 300,
+            divisions: 29,
+            onChanged: (v) => onParticleCountChanged(v.round()),
+          ),
+          _SliderSettingRow(
+            label: 'Velocidade',
+            valueLabel: particleSpeed.toStringAsFixed(1),
+            value: particleSpeed,
+            min: 0.1,
+            max: 3.0,
+            divisions: 29,
+            onChanged: onParticleSpeedChanged,
+          ),
+          _SliderSettingRow(
+            label: 'Distância de conexão',
+            valueLabel: '${particleLineDistance.round()}px',
+            value: particleLineDistance,
+            min: 40,
+            max: 250,
+            divisions: 21,
+            onChanged: onParticleLineDistanceChanged,
+          ),
+        ],
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: saving ? null : onSave,
+            child: saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Salvar alterações'),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _SliderSettingRow extends StatelessWidget {
+  const _SliderSettingRow({
+    required this.label,
+    required this.valueLabel,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String valueLabel;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+              Text(valueLabel, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            ],
+          ),
+          Slider(value: value, min: min, max: max, divisions: divisions, onChanged: onChanged),
+        ],
+      ),
     );
   }
 }

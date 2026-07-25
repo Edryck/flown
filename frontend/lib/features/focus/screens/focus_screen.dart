@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:particles_network/particles_network.dart';
 
 import '../../../core/models/checklist_item.dart';
 import '../../../core/models/focus_session_type.dart';
@@ -13,6 +14,7 @@ import '../../../core/models/task_priority.dart';
 import '../../../core/widgets/badge_size.dart';
 import '../../../core/widgets/priority_badge.dart';
 import '../../projects/providers/project_list_controller.dart';
+import '../../settings/providers/settings_preferences.dart';
 import '../../tasks/providers/task_list_controller.dart';
 import '../../tasks/providers/task_repository.dart';
 import '../providers/focus_session_repository.dart';
@@ -39,6 +41,23 @@ import '../providers/focus_session_repository.dart';
 /// `ProjectType` customizado poderia nomear o status de outro jeito) —
 /// mesmo tipo de atalho que o backend já assume pra `COMPLETED_STATUS`
 /// ("Done", `task.service.ts`).
+///
+/// Fundo com partículas interativas (`particles_network`, sem referência no
+/// protótipo — pedido à parte do usuário), configurável em Configurações →
+/// Aparência (`SettingsPreferences.particles*`). Pra reagir ao mouse só
+/// quando ele está sobre o fundo (fora do cartão/timer/botões, não em cima
+/// deles) sem precisar de nenhum truque manual: o `ParticleNetwork` fica
+/// atrás, em `Positioned.fill`, e o conteúdo interativo fica num `Align` +
+/// `ConstrainedBox(maxWidth: 720)` (não `Positioned.fill` direto no
+/// `SingleChildScrollView` como antes) — como `Align`/`ConstrainedBox` não
+/// têm gesture detector próprio, só a faixa central de 720px (onde o
+/// `Scrollable` realmente ocupa) intercepta o hit-test; as margens laterais
+/// (em telas largas) deixam o hover passar direto pro `ParticleNetwork`
+/// por baixo. Descrito em detalhe porque não é o padrão óbvio — um
+/// `Positioned.fill` direto no `SingleChildScrollView` (como era antes)
+/// bloqueia o hover na tela inteira, já que o `Scrollable` interno usa
+/// `HitTestBehavior.opaque` pra permitir arrastar/rolar mesmo a partir de
+/// área "vazia".
 class FocusScreen extends ConsumerStatefulWidget {
   const FocusScreen({super.key});
 
@@ -171,7 +190,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
     // Recalcula `progress` junto — mesma lógica de `TaskFormDialog`
     // (`_resolveProgress`). Sem isso, marcar um item aqui atualizava só o
     // checklist e a barra de progresso do card ficava com o valor antigo.
-    final progress = ((updated.where((c) => c.done).length / updated.length) * 100).round();
+    final progress =
+        ((updated.where((c) => c.done).length / updated.length) * 100).round();
     ref
         .read(taskListControllerProvider.notifier)
         .updateTask(task.id, TaskInput(checklist: updated, progress: progress));
@@ -185,6 +205,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
     final projectNamesById = <String, String>{
       for (final p in projects) p.id: p.name,
     };
+    final prefs = ref.watch(settingsPreferencesControllerProvider).valueOrNull;
 
     return Scaffold(
       body: Container(
@@ -209,32 +230,64 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
           ),
           data: (tasks) {
             final focusTask = _pickFocusTask(tasks);
-            if (focusTask == null)
-              return _EmptyFocusState(onGoToTasks: () => context.go('/tasks'));
+
+            // Fundo de partículas antes do `if`/`else` de propósito — igual
+            // com nenhuma task "In Progress" (estado vazio), a tela continua
+            // imersiva; o efeito não pode desaparecer só porque não há
+            // task em foco no momento.
+            final particlesLayer = (prefs?.particlesEnabled ?? true)
+                ? Positioned.fill(
+                    child: ParticleNetwork(
+                      particleCount: prefs?.particleCount ?? 80,
+                      maxSpeed: prefs?.particleSpeed ?? 0.6,
+                      lineDistance: prefs?.particleLineDistance ?? 120,
+                      particleColor: Colors.white.withValues(alpha: 0.6),
+                      lineColor: const Color(0xFF4A9E99),
+                      touchColor: const Color(0xFF7BA3C7),
+                      touchActivation: prefs?.particlesInteractive ?? true,
+                      hoverEffect: prefs?.particlesInteractive ?? true,
+                    ),
+                  )
+                : null;
+
+            if (focusTask == null) {
+              return Stack(
+                children: [
+                  ?particlesLayer,
+                  Positioned.fill(
+                    child: _EmptyFocusState(
+                      onGoToTasks: () => context.go('/tasks'),
+                    ),
+                  ),
+                ],
+              );
+            }
 
             return Stack(
               children: [
-                const _AmbientStars(),
+                ?particlesLayer,
                 // `Positioned.fill` de propósito: filho não-posicionado de
                 // `Stack` não preenche o Stack inteiro por padrão (só
-                // alinha no canto superior-esquerdo, `topStart`), então o
-                // `SingleChildScrollView` ficava menor que a tela — sem
-                // isso, o `Center` interno não tinha largura de verdade
-                // pra centralizar o `ConstrainedBox` contra.
+                // alinha no canto superior-esquerdo, `topStart`) — sem
+                // isso, `Align` não teria a área cheia da tela pra
+                // centralizar contra. Ver doc da classe pra por que
+                // `Align`/`ConstrainedBox` (não `Center` direto no
+                // `SingleChildScrollView`) — é o que permite o hover
+                // vazar pro `ParticleNetwork` nas margens.
                 //
                 // Fica ANTES do botão X de propósito: `Stack` testa/pinta
                 // os filhos na ordem da lista (o último fica por cima) —
                 // com o `Positioned.fill` depois do X, o scroll view
                 // cobria a mesma área e roubava o clique do botão.
                 Positioned.fill(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 64,
-                    ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 720),
+                  child: Align(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 64,
+                        ),
                         child: Column(
                           children: [
                             Container(
@@ -685,50 +738,11 @@ class _EmptyFocusState extends StatelessWidget {
   }
 }
 
-class _AmbientStars extends StatelessWidget {
-  const _AmbientStars();
-
-  @override
-  Widget build(BuildContext context) {
-    return const IgnorePointer(
-      child: Stack(
-        children: [
-          Positioned(
-            top: 80,
-            left: 60,
-            child: _PulsingDot(color: Colors.white, size: 4, opacity: 0.4),
-          ),
-          Positioned(
-            top: 160,
-            right: 80,
-            child: _PulsingDot(color: Colors.white, size: 4, opacity: 0.25),
-          ),
-          Positioned(
-            bottom: 200,
-            left: 120,
-            child: _PulsingDot(color: Colors.white, size: 3, opacity: 0.3),
-          ),
-          Positioned(
-            top: 240,
-            right: 200,
-            child: _PulsingDot(color: Colors.white, size: 4, opacity: 0.25),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _PulsingDot extends StatefulWidget {
-  const _PulsingDot({
-    required this.color,
-    required this.size,
-    this.opacity = 1,
-  });
+  const _PulsingDot({required this.color, required this.size});
 
   final Color color;
   final double size;
-  final double opacity;
 
   @override
   State<_PulsingDot> createState() => _PulsingDotState();
@@ -750,10 +764,7 @@ class _PulsingDotState extends State<_PulsingDot>
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: Tween<double>(
-        begin: widget.opacity,
-        end: widget.opacity * 0.3,
-      ).animate(_controller),
+      opacity: Tween<double>(begin: 1, end: 0.3).animate(_controller),
       child: Container(
         width: widget.size,
         height: widget.size,
