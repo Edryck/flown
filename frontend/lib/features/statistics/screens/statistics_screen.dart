@@ -2,9 +2,12 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/models/task_priority.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../../core/widgets/metric_card.dart';
+import '../../../core/widgets/priority_badge.dart';
 import '../../../core/widgets/screen_gradient_backdrop.dart';
+import '../../projects/providers/project_list_controller.dart';
 import '../../tasks/providers/task_list_controller.dart';
 import '../../tasks/utils/task_hierarchy.dart';
 import '../../tasks/utils/task_status_colors.dart';
@@ -33,6 +36,7 @@ class StatisticsScreen extends ConsumerWidget {
     final statsAsync = ref.watch(dashboardStatsProvider);
     final annualStatsAsync = ref.watch(annualDashboardStatsProvider);
     final tasksAsync = ref.watch(taskListControllerProvider);
+    final projectsAsync = ref.watch(projectListControllerProvider);
 
     return ScreenGradientBackdrop(
       child: SingleChildScrollView(
@@ -80,6 +84,10 @@ class StatisticsScreen extends ConsumerWidget {
                 final recentMonthly = monthly.length > 7
                     ? monthly.sublist(monthly.length - 7)
                     : monthly;
+                final projectBreakdown = computeProjectBreakdown(
+                  tasks,
+                  projectsAsync.valueOrNull ?? const [],
+                );
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,6 +133,52 @@ class StatisticsScreen extends ConsumerWidget {
                           ),
                         );
                       },
+                    ),
+                    const SizedBox(height: 24),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final priorityChart = _ChartCard(
+                          title: 'Distribuição por Prioridade',
+                          subtitle: 'Tarefas atuais por prioridade',
+                          child: _PriorityPieChart(
+                            byPriority:
+                                stats.projectHealth.distribution.byPriority,
+                          ),
+                        );
+                        final peakHourChart = _ChartCard(
+                          title: 'Horário de Conclusão',
+                          subtitle: stats.focus.peakHour.peakHour != null
+                              ? 'Tarefas concluídas por horário do dia (pico às ${stats.focus.peakHour.peakHour}h)'
+                              : 'Tarefas concluídas por horário do dia',
+                          child: _PeakHourChart(peakHour: stats.focus.peakHour),
+                        );
+
+                        if (constraints.maxWidth < 700) {
+                          return Column(
+                            children: [
+                              priorityChart,
+                              const SizedBox(height: 24),
+                              peakHourChart,
+                            ],
+                          );
+                        }
+                        return IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(child: priorityChart),
+                              const SizedBox(width: 24),
+                              Expanded(child: peakHourChart),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    _ChartCard(
+                      title: 'Tarefas por Projeto',
+                      subtitle: 'Progresso e quantidade de tarefas por projeto',
+                      child: _ProjectBreakdownChart(entries: projectBreakdown),
                     ),
                     const SizedBox(height: 24),
                     _ChartCard(
@@ -419,6 +473,252 @@ class _StatusPieChart extends StatelessWidget {
               ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+class _PriorityPieChart extends StatelessWidget {
+  const _PriorityPieChart({required this.byPriority});
+
+  final Map<String, int> byPriority;
+
+  Color _colorOf(AppSemanticColors semantic, TaskPriority priority) =>
+      switch (priority) {
+        TaskPriority.high => semantic.priorityHigh,
+        TaskPriority.medium => semantic.priorityMedium,
+        TaskPriority.low => semantic.priorityLow,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final semantic = context.semanticColors;
+    // Ordem de severidade (Alta -> Baixa) em vez da ordem de inserção do
+    // Map, que vem do backend sem garantia de ordem.
+    const order = [TaskPriority.high, TaskPriority.medium, TaskPriority.low];
+    final entries = [
+      for (final priority in order)
+        if ((byPriority[priority.wireValue] ?? 0) > 0)
+          MapEntry(priority, byPriority[priority.wireValue]!),
+    ];
+
+    if (entries.isEmpty) {
+      return const SizedBox(
+        height: 260,
+        child: Center(child: Text('Sem tarefas ainda')),
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 220,
+          child: PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 50,
+              sections: [
+                for (final entry in entries)
+                  PieChartSectionData(
+                    value: entry.value.toDouble(),
+                    color: _colorOf(semantic, entry.key),
+                    radius: 40,
+                    title: '${entry.value}',
+                    titleStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          children: [
+            for (final entry in entries)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: _colorOf(semantic, entry.key),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${PriorityBadge.labels[entry.key]}: ${entry.value}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PeakHourChart extends StatelessWidget {
+  const _PeakHourChart({required this.peakHour});
+
+  final PeakHour peakHour;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final histogram = peakHour.histogram;
+    final hasData = histogram.any((count) => count > 0);
+
+    if (!hasData) {
+      return const SizedBox(
+        height: 260,
+        child: Center(child: Text('Sem dados suficientes ainda')),
+      );
+    }
+
+    final maxCount = histogram.reduce((a, b) => a > b ? a : b);
+
+    return SizedBox(
+      height: 260,
+      child: BarChart(
+        BarChartData(
+          maxY: maxCount * 1.2,
+          alignment: BarChartAlignment.spaceAround,
+          gridData: const FlGridData(show: true, drawVerticalLine: false),
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(showTitles: true, reservedSize: 32),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                // Intervalo 3 (0h, 3h, 6h...) — com 24 barras, rótulo em
+                // toda hora fica ilegível; mesma técnica defensiva de
+                // `_MonthlyBarChart`/`_WeeklyActivityChart` pra evitar pedido
+                // de rótulo fora dos índices inteiros reais.
+                interval: 3,
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  final hour = value.round();
+                  if (hour < 0 ||
+                      hour >= 24 ||
+                      hour % 3 != 0 ||
+                      hour != value) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '${hour}h',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          barGroups: [
+            for (var hour = 0; hour < 24; hour++)
+              BarChartGroupData(
+                x: hour,
+                barRods: [
+                  BarChartRodData(
+                    toY: histogram[hour].toDouble(),
+                    color: hour == peakHour.peakHour
+                        ? colorScheme.primary
+                        : colorScheme.primary.withValues(alpha: 0.35),
+                    width: 8,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(3),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectBreakdownChart extends StatelessWidget {
+  const _ProjectBreakdownChart({required this.entries});
+
+  final List<ProjectBreakdownEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final semantic = context.semanticColors;
+
+    if (entries.isEmpty) {
+      return const SizedBox(
+        height: 80,
+        child: Center(child: Text('Nenhum projeto com tarefas ainda')),
+      );
+    }
+
+    return Column(
+      children: [
+        for (final entry in entries)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    entry.projectName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: entry.progress / 100,
+                      minHeight: 8,
+                      backgroundColor:
+                          theme.colorScheme.surfaceContainerHighest,
+                      color: entry.isOverdue
+                          ? semantic.priorityHigh
+                          : theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 130,
+                  child: Text(
+                    '${entry.progress}% · ${entry.taskCount} tarefa${entry.taskCount == 1 ? '' : 's'}',
+                    textAlign: TextAlign.right,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/models/project.dart';
 import '../../../core/models/task.dart';
+import '../../projects/utils/project_stats.dart';
 import '../providers/dashboard_stats_repository.dart';
 
 const _monthAbbrev = [
@@ -32,11 +34,14 @@ int computeProductivityScore(DashboardStats stats) {
 
   final due = stats.projectHealth.dueStatus;
   final completedWithDueDate = due.completedOnTime + due.completedLate;
-  final onTimeRate = completedWithDueDate > 0 ? due.completedOnTime / completedWithDueDate : 1.0;
+  final onTimeRate = completedWithDueDate > 0
+      ? due.completedOnTime / completedWithDueDate
+      : 1.0;
 
   final streakFactor = (stats.focus.streak / 7).clamp(0, 1);
 
-  final score = 100 * (0.5 * completionRate + 0.3 * onTimeRate + 0.2 * streakFactor);
+  final score =
+      100 * (0.5 * completionRate + 0.3 * onTimeRate + 0.2 * streakFactor);
   return score.round().clamp(0, 100);
 }
 
@@ -56,14 +61,18 @@ List<MonthlyCount> aggregateHeatmapByMonth(List<HeatmapEntry> heatmap) {
   final counts = <String, int>{};
   final order = <String>[];
   for (final entry in heatmap) {
-    final key = '${entry.date.year}-${entry.date.month.toString().padLeft(2, '0')}';
+    final key =
+        '${entry.date.year}-${entry.date.month.toString().padLeft(2, '0')}';
     if (!counts.containsKey(key)) order.add(key);
     counts[key] = (counts[key] ?? 0) + entry.count;
   }
   order.sort();
   return [
     for (final key in order)
-      MonthlyCount(label: _monthAbbrev[int.parse(key.split('-')[1]) - 1], count: counts[key]!),
+      MonthlyCount(
+        label: _monthAbbrev[int.parse(key.split('-')[1]) - 1],
+        count: counts[key]!,
+      ),
   ];
 }
 
@@ -103,7 +112,8 @@ List<WeeklyStatusPoint> computeWeeklyStatusActivity(List<Task> tasks) {
   final todayDate = DateTime(today.year, today.month, today.day);
   final sunday = todayDate.subtract(Duration(days: todayDate.weekday % 7));
 
-  bool sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  bool sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   return [
     for (var i = 0; i < 7; i++)
@@ -113,7 +123,9 @@ List<WeeklyStatusPoint> computeWeeklyStatusActivity(List<Task> tasks) {
         return WeeklyStatusPoint(
           dayLabel: _dayAbbrev[day.weekday % 7],
           todo: touchedThatDay.where((t) => t.status == 'Todo').length,
-          inProgress: touchedThatDay.where((t) => t.status == 'In Progress').length,
+          inProgress: touchedThatDay
+              .where((t) => t.status == 'In Progress')
+              .length,
           inReview: touchedThatDay.where((t) => t.status == 'In Review').length,
           done: touchedThatDay.where((t) => t.status == 'Done').length,
         );
@@ -122,7 +134,12 @@ List<WeeklyStatusPoint> computeWeeklyStatusActivity(List<Task> tasks) {
 }
 
 class InsightCardData {
-  const InsightCardData({required this.icon, required this.color, required this.title, required this.description});
+  const InsightCardData({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.description,
+  });
 
   final IconData icon;
   final Color color;
@@ -134,7 +151,11 @@ class InsightCardData {
 /// do protótipo por insights de verdade, gerados a partir de
 /// `DashboardStats` — o protótipo nunca calcula nada aqui, é texto estático
 /// no componente.
-List<InsightCardData> buildInsights(DashboardStats stats, {required Color positiveColor, required Color warningColor}) {
+List<InsightCardData> buildInsights(
+  DashboardStats stats, {
+  required Color positiveColor,
+  required Color warningColor,
+}) {
   final ratePercent = (stats.productivity.completionRate.rate * 100).round();
   final peak = stats.focus.peakHour.peakHour;
   final streak = stats.focus.streak;
@@ -168,10 +189,60 @@ List<InsightCardData> buildInsights(DashboardStats stats, {required Color positi
     InsightCardData(
       icon: overdue > 0 ? Icons.error_outline : Icons.verified_outlined,
       color: overdue > 0 ? warningColor : const Color(0xFF7A5AA6),
-      title: overdue > 0 ? '$overdue tarefa${overdue == 1 ? '' : 's'} atrasada${overdue == 1 ? '' : 's'}' : 'Tudo em dia',
+      title: overdue > 0
+          ? '$overdue tarefa${overdue == 1 ? '' : 's'} atrasada${overdue == 1 ? '' : 's'}'
+          : 'Tudo em dia',
       description: overdue > 0
           ? 'Vale revisar os prazos das tarefas atrasadas.'
           : 'Nenhuma tarefa atrasada no momento — mandou bem!',
     ),
   ];
+}
+
+class ProjectBreakdownEntry {
+  const ProjectBreakdownEntry({
+    required this.projectName,
+    required this.taskCount,
+    required this.progress,
+    required this.isOverdue,
+  });
+
+  final String projectName;
+  final int taskCount;
+
+  /// 0-100.
+  final int progress;
+  final bool isOverdue;
+}
+
+/// "Tarefas por Projeto" das Estatísticas — reaproveita `computeProjectStats`
+/// (mesma lógica usada nos cards da tela Projetos) em vez de recalcular
+/// progresso/atraso do zero. `tasks` deve já estar filtrada a top-level
+/// (sem subtasks); projetos sem nenhuma task não entram no resultado.
+List<ProjectBreakdownEntry> computeProjectBreakdown(
+  List<Task> tasks,
+  List<Project> projects,
+) {
+  final tasksByProject = <String, List<Task>>{};
+  for (final task in tasks) {
+    final projectId = task.projectId;
+    if (projectId == null) continue;
+    (tasksByProject[projectId] ??= []).add(task);
+  }
+
+  final entries = [
+    for (final project in projects)
+      if (tasksByProject[project.id] case final projectTasks?)
+        () {
+          final stats = computeProjectStats(projectTasks);
+          return ProjectBreakdownEntry(
+            projectName: project.name,
+            taskCount: stats.taskCount,
+            progress: stats.progress,
+            isOverdue: stats.isOverdue,
+          );
+        }(),
+  ];
+  entries.sort((a, b) => b.taskCount.compareTo(a.taskCount));
+  return entries;
 }
