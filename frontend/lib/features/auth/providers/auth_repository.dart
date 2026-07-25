@@ -6,6 +6,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/models/auth_response.dart';
 import '../../../core/models/user.dart';
 import '../../../core/services/token_storage.dart';
+import 'google_login_launcher.dart';
 
 part 'auth_repository.g.dart';
 
@@ -52,6 +53,42 @@ class AuthRepository {
     });
   }
 
+  /// Abre o navegador do sistema pro fluxo OAuth do Google (só Desktop por
+  /// enquanto, ver `google_login_launcher.dart`) e troca o handoff recebido
+  /// por tokens de verdade em `/auth/google/exchange` — dali em diante é
+  /// tratado exatamente como um login por senha (mesmo `TokenStorage`).
+  Future<User> loginWithGoogle() {
+    return guardApiCall(() async {
+      final handoff = await runGoogleDesktopLoginFlow(apiBaseUrl);
+
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/auth/google/exchange',
+        data: {'handoff': handoff},
+      );
+      final data = response.data!;
+      await _tokenStorage.saveTokens(
+        accessToken: data['accessToken'] as String,
+        refreshToken: data['refreshToken'] as String,
+      );
+
+      final userResponse = await _dio.get<Map<String, dynamic>>('/users/me');
+      return User.fromJson(userResponse.data!);
+    });
+  }
+
+  /// Só pra decidir se o botão de bypass de dev aparece na tela de login —
+  /// nunca deve travar a tela se o backend estiver fora do ar ou a rota
+  /// falhar por qualquer motivo, então erros aqui viram `false` (esconde o
+  /// botão) em vez de propagar como nas outras chamadas deste repository.
+  Future<bool> checkSkipAuthEnabled() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/auth/dev-mode');
+      return response.data?['skipAuth'] as bool? ?? false;
+    } on DioException {
+      return false;
+    }
+  }
+
   Future<void> logout() {
     return guardApiCall(() async {
       final refreshToken = await _tokenStorage.readRefreshToken();
@@ -67,7 +104,10 @@ class AuthRepository {
     });
   }
 
-  Future<void> changePassword({required String currentPassword, required String newPassword}) {
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
     return guardApiCall(() {
       return _dio.post(
         '/auth/change-password',

@@ -66,6 +66,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.isLoading;
     final isRegister = _mode == _AuthMode.register;
+    // Só chama o backend em debug — em release o botão nunca aparece,
+    // independente da resposta.
+    final showDevBypass =
+        kDebugMode &&
+        (ref.watch(devBypassAvailableProvider).valueOrNull ?? false);
 
     return Theme(
       data: AppTheme.light,
@@ -210,7 +215,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 )
                               : Text(isRegister ? 'Criar conta' : 'Entrar'),
                         ),
-                        if (kDebugMode) ...[
+                        if (!kIsWeb) ...[
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Divider(color: Color(0xFFDDE4EC)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                child: Text(
+                                  'ou',
+                                  style: const TextStyle(
+                                    color: Color(0xFF6B7B8F),
+                                  ),
+                                ),
+                              ),
+                              const Expanded(
+                                child: Divider(color: Color(0xFFDDE4EC)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton(
+                            onPressed: isLoading
+                                ? null
+                                : () => ref
+                                      .read(authControllerProvider.notifier)
+                                      .loginWithGoogle(),
+                            child: const Text('Continuar com Google'),
+                          ),
+                        ],
+                        if (showDevBypass) ...[
                           const SizedBox(height: 20),
                           const Divider(color: Color(0xFFDDE4EC)),
                           const SizedBox(height: 12),

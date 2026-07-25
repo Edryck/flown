@@ -13,7 +13,8 @@ model User {
   id String @id @default(cuid())
   name String
   email String @unique
-  password String // hash bcrypt
+  password String? // hash bcrypt - null em contas criadas via Google
+  googleId String? @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

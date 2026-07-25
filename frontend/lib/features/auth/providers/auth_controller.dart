@@ -23,7 +23,9 @@ class AuthController extends _$AuthController {
   Future<void> login({required String email, required String password}) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() {
-      return ref.read(authRepositoryProvider).login(email: email, password: password);
+      return ref
+          .read(authRepositoryProvider)
+          .login(email: email, password: password);
     });
   }
 
@@ -34,7 +36,16 @@ class AuthController extends _$AuthController {
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() {
-      return ref.read(authRepositoryProvider).register(name: name, email: email, password: password);
+      return ref
+          .read(authRepositoryProvider)
+          .register(name: name, email: email, password: password);
+    });
+  }
+
+  Future<void> loginWithGoogle() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() {
+      return ref.read(authRepositoryProvider).loginWithGoogle();
     });
   }
 
@@ -44,7 +55,9 @@ class AuthController extends _$AuthController {
   }
 
   Future<void> updateProfile({String? name, String? email}) async {
-    final updated = await ref.read(authRepositoryProvider).updateProfile(name: name, email: email);
+    final updated = await ref
+        .read(authRepositoryProvider)
+        .updateProfile(name: name, email: email);
     state = AsyncData(updated);
   }
 
@@ -65,4 +78,14 @@ class AuthController extends _$AuthController {
       ),
     );
   }
+}
+
+/// Se o botão de bypass de dev deve aparecer na tela de login — reflete o
+/// `SKIP_AUTH` real do backend (`GET /auth/dev-mode`), não só o modo debug
+/// do Flutter. Sem isso, o botão continuava visível em builds debug mesmo
+/// com o backend já exigindo login de verdade, e clicar nele deixava a UI
+/// num estado "logado" falso que quebrava (401) na primeira chamada real.
+@riverpod
+Future<bool> devBypassAvailable(DevBypassAvailableRef ref) {
+  return ref.watch(authRepositoryProvider).checkSkipAuthEnabled();
 }

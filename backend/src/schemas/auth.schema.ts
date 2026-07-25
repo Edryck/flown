@@ -30,3 +30,26 @@ export const authResponseSchema = Joi.object({
 export const refreshResponseSchema = Joi.object({
     accessToken: Joi.string().required(),
 });
+
+// `redirectPort` (Desktop, servidor HTTP local temporario) e `webRedirect`
+// (Web, URL de origem do proprio app) sao mutuamente exclusivos — a rota
+// so sabe montar UM jeito de devolver o handoff no final do login.
+export const googleAuthorizeQuerySchema = Joi.object({
+    redirectPort: Joi.number().integer().min(1).max(65535),
+    webRedirect: Joi.string().uri(),
+}).xor("redirectPort", "webRedirect");
+
+export const googleCallbackQuerySchema = Joi.object({
+    code: Joi.string(),
+    state: Joi.string().required(),
+    error: Joi.string(),
+}).xor("code", "error");
+
+export const googleExchangeSchema = Joi.object({
+    handoff: Joi.string().required(),
+});
+
+export const googleExchangeResponseSchema = Joi.object({
+    accessToken: Joi.string().required(),
+    refreshToken: Joi.string().required(),
+});
