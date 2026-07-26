@@ -21,7 +21,9 @@ class TaskListController extends _$TaskListController {
 
   Future<void> refresh() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() => ref.read(taskRepositoryProvider).list(isDeleted: false));
+    state = await AsyncValue.guard(
+      () => ref.read(taskRepositoryProvider).list(isDeleted: false),
+    );
   }
 
   Future<Task> create(TaskInput input) async {
@@ -35,7 +37,22 @@ class TaskListController extends _$TaskListController {
   /// atual), com assinatura incompatível com essa.
   Future<Task> updateTask(String id, TaskInput input) async {
     final task = await ref.read(taskRepositoryProvider).update(id, input);
-    state = AsyncData([for (final t in state.valueOrNull ?? const <Task>[]) if (t.id == id) task else t]);
+
+    if (task.parentTaskId != null) {
+      // Atualizar uma subtask recalcula o progresso da tarefa-mãe no
+      // backend (subtasks + checklist dela, ver task.service.ts) — a
+      // resposta desta chamada só traz a subtask em si, então recarrega a
+      // lista toda pra pegar o valor novo do pai também (sem isso, a barra
+      // de progresso da mãe ficava travada no valor antigo até um refresh
+      // manual).
+      await refresh();
+      return task;
+    }
+
+    state = AsyncData([
+      for (final t in state.valueOrNull ?? const <Task>[])
+        if (t.id == id) task else t,
+    ]);
     return task;
   }
 
@@ -46,6 +63,9 @@ class TaskListController extends _$TaskListController {
 
   Future<void> delete(String id) async {
     await ref.read(taskRepositoryProvider).softDelete(id);
-    state = AsyncData([for (final t in state.valueOrNull ?? const <Task>[]) if (t.id != id) t]);
+    state = AsyncData([
+      for (final t in state.valueOrNull ?? const <Task>[])
+        if (t.id != id) t,
+    ]);
   }
 }
