@@ -12,6 +12,7 @@ import { focusSessionRoutes } from "./routes/focus-session.routes.js";
 import { dashboardRoutes } from "./routes/dashboard.routes.js";
 import { searchRoutes } from "./routes/search.routes.js";
 import { trashRoutes } from "./routes/trash.routes.js";
+import { sendDueReminders } from "./services/reminder.service.js";
 
 export function buildApp() {
   const app = Fastify({ logger: true });
@@ -50,10 +51,18 @@ export function buildApp() {
   return app;
 }
 
+const REMINDER_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+
 async function start() {
   const app = buildApp();
   const port = Number(process.env["PORT"] ?? 3333);
   await app.listen({ port, host: "0.0.0.0" });
+
+  // Roda uma vez no boot (nao espera os 10min iniciais) e depois a cada
+  // intervalo - falha de SMTP so vira log, nunca derruba o servidor.
+  const runReminderCheck = () => sendDueReminders().catch((err) => app.log.error(err));
+  runReminderCheck();
+  setInterval(runReminderCheck, REMINDER_CHECK_INTERVAL_MS);
 }
 
 // process.argv[1] vem com barra invertida no Windows (D:\...), sem prefixo

@@ -147,10 +147,11 @@ export async function softDeleteTasksByProjectId(projectId: string, userId: stri
 }
 
 // `parentTaskId: null` nas duas queries abaixo de proposito — subtarefas nao
-// contam pras estatisticas/dashboard (pedido explicito do usuario), so as
-// tasks de nivel superior. Isso alimenta tanto `GET /dashboard/stats` quanto
-// o heatmap/grafico mensal da tela de Estatisticas, ja que os dois vem
-// dessas mesmas duas funcoes.
+// tem due date propria (sempre herdam do pai, ver task.service.ts) e nao
+// contam como task independente, entao nao fazem sentido nas
+// estatisticas/dashboard, so as tasks de nivel superior. Isso alimenta tanto
+// `GET /dashboard/stats` quanto o heatmap/grafico mensal da tela de
+// Estatisticas, ja que os dois vem dessas mesmas duas funcoes.
 export async function findTasksForDashboardWindow(userId: string, since: Date) {
   return prisma.task.findMany({
     where: {
@@ -167,5 +168,33 @@ export async function findAllActiveTasksSnapshot(userId: string) {
   return prisma.task.findMany({
     where: { userId, isDeleted: false, parentTaskId: null },
     select: { status: true, priority: true, dueDate: true, completedAt: true },
+  });
+}
+
+// Sem `userId` de proposito — roda num job periodico do servidor (nao numa
+// requisicao de um usuario especifico), varrendo todo mundo de uma vez.
+export async function findTasksNeedingReminder(windowHours: number) {
+  const now = new Date();
+  const threshold = new Date(now.getTime() + windowHours * 60 * 60 * 1000);
+
+  return prisma.task.findMany({
+    where: {
+      isDeleted: false,
+      completedAt: null,
+      parentTaskId: null,
+      reminderSentAt: null,
+      dueDate: { gte: now, lte: threshold },
+    },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      project: { select: { name: true } },
+    },
+  });
+}
+
+export async function markRemindersSent(taskIds: string[]) {
+  return prisma.task.updateMany({
+    where: { id: { in: taskIds } },
+    data: { reminderSentAt: new Date() },
   });
 }

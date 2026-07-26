@@ -86,6 +86,7 @@ model Task {
   isDeleted Boolean @default(false)
   deletedAt DateTime?
   completedAt DateTime?
+  reminderSentAt DateTime? // marca que o lembrete (e-mail + notificacao) ja foi disparado pra essa task
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
