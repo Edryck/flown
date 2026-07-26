@@ -23,6 +23,7 @@ model User {
   projects Project[]
   notes Note[]
   focusSessions FocusSession[]
+  notifications Notification[]
 }
 
 model RefreshToken {
@@ -86,7 +87,7 @@ model Task {
   isDeleted Boolean @default(false)
   deletedAt DateTime?
   completedAt DateTime?
-  reminderSentAt DateTime? // marca que o lembrete (e-mail + notificacao) ja foi disparado pra essa task
+  remindersSent Json @default("[]") // horas de antecedencia (24/12/6/1) ja notificadas - ver reminder.service.ts
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -123,6 +124,23 @@ model Note {
 
   projectId String?
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+// Notificacao (feed de eventos - mudanca de status, prazo se aproximando,
+// resumo de produtividade). API/payload sempre em ingles/estruturado - quem
+// formata a frase em portugues e o frontend, mesma convencao do status
+// dinamico de Task.
+
+model Notification {
+  id String @id @default(cuid())
+  type String // "status_changed" | "due_soon" | "productivity_summary"
+  payload Json
+  taskId String?
+  isRead Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Sessão de Foco

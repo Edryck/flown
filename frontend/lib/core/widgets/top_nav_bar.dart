@@ -11,6 +11,7 @@ import '../models/note.dart';
 import '../models/project.dart';
 import '../models/task.dart';
 import '../theme/theme_mode_provider.dart';
+import 'notification_bell.dart';
 
 /// Cabeçalho fixo do app — tradução de TopNavBar.tsx
 /// (docs/prototype/components/top-nav-bar.md): logo, abas de navegação,
@@ -51,7 +52,7 @@ class TopNavBar extends ConsumerStatefulWidget {
 }
 
 class _TopNavBarState extends ConsumerState<TopNavBar> {
-  static const _searchFieldWidth = 256.0;
+  static const _searchFieldWidth = 340.0;
   static const _searchPanelWidth = 340.0;
   static const _searchGroupId = 'top-nav-global-search';
 
@@ -269,6 +270,7 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
                 ),
               ),
               const SizedBox(width: 4),
+              const NotificationBell(),
               IconButton(
                 tooltip: 'Configurações',
                 onPressed: () => widget.onNavigate('/settings'),

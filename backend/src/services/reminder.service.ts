@@ -1,9 +1,12 @@
-import { findTasksNeedingReminder, markRemindersSent } from "../repositories/task.repository.js";
+import { findTasksApproachingDue, updateTaskRemindersSent } from "../repositories/task.repository.js";
+import { createNotification } from "../repositories/notification.repository.js";
 import { sendEmail } from "../utils/mailer.js";
 
-// Decisao do usuario (nao configuravel por env de proposito - unico valor
-// pedido, sem necessidade real de ajustar em producao ainda).
-const REMINDER_WINDOW_HOURS = 24;
+// Estagios de aviso antes do prazo, do menos ao mais urgente. O maior
+// (24h) define a janela da query no banco - o service decide, task por
+// task, qual estagio menor ja foi cruzado.
+const THRESHOLD_HOURS = [24, 12, 6, 1] as const;
+const MAX_WINDOW_HOURS = Math.max(...THRESHOLD_HOURS);
 
 function escapeHtml(value: string): string {
   const replacements: Record<string, string> = {
@@ -26,7 +29,11 @@ function formatDueDate(date: Date): string {
   });
 }
 
-type ReminderTask = { title: string; dueDate: Date; projectName: string | null };
+function formatThreshold(hours: number): string {
+  return hours === 1 ? "1 hora" : `${hours} horas`;
+}
+
+type ReminderTask = { title: string; dueDate: Date; projectName: string | null; thresholdHours: number };
 
 // HTML "de mao" (sem template engine) de proposito - e um unico e-mail
 // simples, cores batendo com o gradiente/paleta usados na tela de login do
@@ -39,6 +46,7 @@ function buildReminderEmailHtml(userName: string, tasks: ReminderTask[]): string
           <td style="padding:12px 16px;border-bottom:1px solid #EDEDED;">
             <div style="font-weight:600;color:#1A202C;font-size:14px;">${escapeHtml(task.title)}</div>
             ${task.projectName ? `<div style="color:#6B7B8F;font-size:12px;margin-top:2px;">${escapeHtml(task.projectName)}</div>` : ""}
+            <div style="color:#B2560D;font-size:12px;margin-top:2px;">Faltam ${formatThreshold(task.thresholdHours)}</div>
           </td>
           <td style="padding:12px 16px;border-bottom:1px solid #EDEDED;text-align:right;color:#D97373;font-size:13px;font-weight:500;white-space:nowrap;">
             ${formatDueDate(task.dueDate)}
@@ -65,7 +73,7 @@ function buildReminderEmailHtml(userName: string, tasks: ReminderTask[]): string
             <td style="padding:28px 32px 8px;">
               <div style="font-size:16px;font-weight:600;color:#1A202C;">Olá, ${escapeHtml(userName)}</div>
               <div style="font-size:14px;color:#6B7B8F;margin-top:6px;">
-                Você tem ${tasks.length} tarefa${tasks.length === 1 ? "" : "s"} vencendo nas próximas ${REMINDER_WINDOW_HOURS} horas:
+                Você tem ${tasks.length} tarefa${tasks.length === 1 ? "" : "s"} vencendo em breve:
               </div>
             </td>
           </tr>
@@ -84,36 +92,59 @@ function buildReminderEmailHtml(userName: string, tasks: ReminderTask[]): string
 </html>`;
 }
 
-// Roda periodicamente (ver server.ts) - agrupa por usuario pra mandar UM
-// e-mail com todas as tarefas vencendo, nao um e-mail por tarefa. So marca
-// `reminderSentAt` das tarefas cujo envio deu certo, entao uma falha de SMTP
-// tenta de novo no proximo ciclo em vez de perder o lembrete.
-export async function sendDueReminders() {
-  const tasks = await findTasksNeedingReminder(REMINDER_WINDOW_HOURS);
+// Roda periodicamente (ver server.ts). Pra cada task dentro da janela de
+// 24h, acha o estagio mais urgente ainda nao disparado e cria UMA
+// notificacao + entra na lista do e-mail agrupado por usuario. Marca todos
+// os estagios >= o disparado como enviados de uma vez - se o servidor ficou
+// fora do ar e a task "pulou" direto pro estagio de 6h, nao faz sentido
+// ainda mandar o de 24h/12h depois, so o mais urgente que coube.
+export async function checkDueSoonReminders() {
+  const tasks = await findTasksApproachingDue(MAX_WINDOW_HOURS);
   if (tasks.length === 0) return;
 
-  const tasksByUser = new Map<string, { name: string; email: string; tasks: typeof tasks }>();
+  const now = Date.now();
+  const emailsByUser = new Map<string, { name: string; email: string; tasks: ReminderTask[] }>();
+
   for (const task of tasks) {
-    const entry = tasksByUser.get(task.userId) ?? { name: task.user.name, email: task.user.email, tasks: [] };
-    entry.tasks.push(task);
-    tasksByUser.set(task.userId, entry);
+    const dueDate = task.dueDate as Date;
+    const alreadySent = (task.remindersSent as number[] | null) ?? [];
+    const hoursUntilDue = (dueDate.getTime() - now) / (60 * 60 * 1000);
+
+    const crossedThresholds = THRESHOLD_HOURS.filter(
+      (hours) => hoursUntilDue <= hours && !alreadySent.includes(hours)
+    );
+    if (crossedThresholds.length === 0) continue;
+
+    const newThreshold = Math.min(...crossedThresholds);
+
+    await createNotification({
+      userId: task.userId,
+      type: "due_soon",
+      taskId: task.id,
+      payload: { taskTitle: task.title, dueDate: dueDate.toISOString(), thresholdHours: newThreshold },
+    });
+
+    const updatedSent = Array.from(
+      new Set([...alreadySent, ...THRESHOLD_HOURS.filter((hours) => hours >= newThreshold)])
+    );
+    await updateTaskRemindersSent(task.id, updatedSent);
+
+    const entry = emailsByUser.get(task.userId) ?? { name: task.user.name, email: task.user.email, tasks: [] };
+    entry.tasks.push({
+      title: task.title,
+      dueDate,
+      projectName: task.project?.name ?? null,
+      thresholdHours: newThreshold,
+    });
+    emailsByUser.set(task.userId, entry);
   }
 
-  const sentTaskIds: string[] = [];
-  for (const [, entry] of tasksByUser) {
-    const html = buildReminderEmailHtml(
-      entry.name,
-      entry.tasks.map((t) => ({ title: t.title, dueDate: t.dueDate as Date, projectName: t.project?.name ?? null }))
-    );
+  for (const [, entry] of emailsByUser) {
+    const html = buildReminderEmailHtml(entry.name, entry.tasks);
     try {
       await sendEmail(entry.email, "Tarefas vencendo em breve — Flown", html);
-      sentTaskIds.push(...entry.tasks.map((t) => t.id));
     } catch (err) {
       console.error(`Failed to send reminder email to ${entry.email}:`, err);
     }
-  }
-
-  if (sentTaskIds.length > 0) {
-    await markRemindersSent(sentTaskIds);
   }
 }

@@ -173,16 +173,18 @@ export async function findAllActiveTasksSnapshot(userId: string) {
 
 // Sem `userId` de proposito — roda num job periodico do servidor (nao numa
 // requisicao de um usuario especifico), varrendo todo mundo de uma vez.
-export async function findTasksNeedingReminder(windowHours: number) {
+// `maxWindowHours` e o maior estagio de lembrete (24h) — o service decide,
+// task por task, quais estagios menores (12/6/1h) ja foram cruzados
+// olhando `remindersSent`.
+export async function findTasksApproachingDue(maxWindowHours: number) {
   const now = new Date();
-  const threshold = new Date(now.getTime() + windowHours * 60 * 60 * 1000);
+  const threshold = new Date(now.getTime() + maxWindowHours * 60 * 60 * 1000);
 
   return prisma.task.findMany({
     where: {
       isDeleted: false,
       completedAt: null,
       parentTaskId: null,
-      reminderSentAt: null,
       dueDate: { gte: now, lte: threshold },
     },
     include: {
@@ -192,9 +194,12 @@ export async function findTasksNeedingReminder(windowHours: number) {
   });
 }
 
-export async function markRemindersSent(taskIds: string[]) {
-  return prisma.task.updateMany({
-    where: { id: { in: taskIds } },
-    data: { reminderSentAt: new Date() },
+export async function updateTaskRemindersSent(id: string, remindersSent: number[]) {
+  return prisma.task.update({ where: { id }, data: { remindersSent } });
+}
+
+export async function countCompletedTasksInRange(userId: string, start: Date, end: Date) {
+  return prisma.task.count({
+    where: { userId, isDeleted: false, parentTaskId: null, completedAt: { gte: start, lt: end } },
   });
 }

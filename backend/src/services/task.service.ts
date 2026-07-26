@@ -15,6 +15,7 @@ import {
   softDeleteTask,
   updateTask,
 } from "../repositories/task.repository.js";
+import { createNotification } from "../repositories/notification.repository.js";
 
 type ChecklistItem = { text: string; done: boolean };
 
@@ -52,24 +53,37 @@ const STATUS_PROGRESS: Record<string, number> = {
   Done: 100,
 };
 
-async function computeProgressFromSubtasks(parentId: string, userId: string): Promise<number | null> {
+// Subtasks e itens do checklist contam como unidades iguais de progresso —
+// uma task com 2 subtasks (1 concluida) e um checklist de 2 itens (1
+// marcado) fica em 50% (2 de 4), nao só a % das subtasks.
+function computeCombinedProgress(
+  checklist: ChecklistItem[],
+  subtasks: { status: string }[]
+): number | null {
+  const totalUnits = checklist.length + subtasks.length;
+  if (totalUnits === 0) return null;
+  const doneChecklist = checklist.filter((item) => item.done).length;
+  const doneSubtasks = subtasks.filter((t) => t.status === COMPLETED_STATUS).length;
+  return Math.round(((doneChecklist + doneSubtasks) / totalUnits) * 100);
+}
+
+async function computeProgressFromSubtasks(parentId: string, userId: string, checklist: ChecklistItem[]) {
   const subtasks = await findSubtasks(parentId, userId);
-  if (subtasks.length === 0) return null;
-  const done = subtasks.filter((t) => t.status === COMPLETED_STATUS).length;
-  return Math.round((done / subtasks.length) * 100);
+  return computeCombinedProgress(checklist, subtasks);
 }
 
 /// Progresso implicito quando o caller nao mandou um valor proprio: prioriza
-/// subtasks reais (% delas concluidas) sobre o mapeamento por status — uma
-/// task com subtasks tem uma medida de progresso mais precisa que "In
-/// Progress = 50%".
+/// subtasks+checklist reais (% delas concluidas) sobre o mapeamento por
+/// status — uma task com subtasks/checklist tem uma medida de progresso
+/// mais precisa que "In Progress = 50%".
 async function resolveImplicitProgress(
   taskId: string,
   userId: string,
-  status: string | undefined
+  status: string | undefined,
+  checklist: ChecklistItem[]
 ): Promise<number | undefined> {
-  const subtaskProgress = await computeProgressFromSubtasks(taskId, userId);
-  if (subtaskProgress !== null) return subtaskProgress;
+  const combinedProgress = await computeProgressFromSubtasks(taskId, userId, checklist);
+  if (combinedProgress !== null) return combinedProgress;
   if (status !== undefined) return STATUS_PROGRESS[status];
   return undefined;
 }
@@ -171,10 +185,11 @@ export async function update(id: string, userId: string, data: Partial<TaskInput
   // setado mas a barra de progresso parada no valor antigo (bug reportado:
   // só tasks com subtasks/checklist atualizavam o progresso ao mudar de
   // status).
+  const effectiveChecklist = (data.checklist ?? task.checklist) as ChecklistItem[];
   const progress =
     data.progress !== undefined
       ? data.progress
-      : (await resolveImplicitProgress(id, userId, data.status)) ?? undefined;
+      : (await resolveImplicitProgress(id, userId, data.status, effectiveChecklist)) ?? undefined;
 
   const updated = await updateTask(id, userId, {
     ...data,
@@ -186,12 +201,28 @@ export async function update(id: string, userId: string, data: Partial<TaskInput
     throw new AppError(404, "Task not found");
   }
 
-  // Se essa task e subtask de outra, o progresso do pai (baseado na % de
-  // subtasks concluidas) pode ter mudado — recalcula e persiste.
+  if (statusChanged) {
+    await createNotification({
+      userId,
+      type: "status_changed",
+      taskId: id,
+      payload: { taskTitle: task.title, oldStatus: task.status, newStatus: data.status },
+    });
+  }
+
+  // Se essa task e subtask de outra, o progresso do pai (subtasks + checklist
+  // proprio dele) pode ter mudado — recalcula e persiste.
   if (updated.parentTaskId) {
-    const parentProgress = await computeProgressFromSubtasks(updated.parentTaskId, userId);
-    if (parentProgress !== null) {
-      await updateTask(updated.parentTaskId, userId, { progress: parentProgress });
+    const parent = await findTaskById(updated.parentTaskId, userId);
+    if (parent) {
+      const parentProgress = await computeProgressFromSubtasks(
+        updated.parentTaskId,
+        userId,
+        parent.checklist as ChecklistItem[]
+      );
+      if (parentProgress !== null) {
+        await updateTask(updated.parentTaskId, userId, { progress: parentProgress });
+      }
     }
   }
 
