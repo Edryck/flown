@@ -39,11 +39,17 @@ export const googleAuthorizeQuerySchema = Joi.object({
     webRedirect: Joi.string().uri(),
 }).xor("redirectPort", "webRedirect");
 
+// `.unknown(true)` de proposito — o Google manda outros campos no redirect
+// alem dos que usamos (`iss`, `scope`, `authuser`, `prompt`, `hd`...), e
+// esse conjunto pode mudar sem aviso. So validamos os 3 que o callback
+// realmente le, ignorando o resto.
 export const googleCallbackQuerySchema = Joi.object({
     code: Joi.string(),
     state: Joi.string().required(),
     error: Joi.string(),
-}).xor("code", "error");
+})
+    .xor("code", "error")
+    .unknown(true);
 
 export const googleExchangeSchema = Joi.object({
     handoff: Joi.string().required(),

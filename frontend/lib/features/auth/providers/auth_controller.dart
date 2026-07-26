@@ -49,6 +49,15 @@ class AuthController extends _$AuthController {
     });
   }
 
+  /// Chamado pela `GoogleCallbackScreen` — continuação de [loginWithGoogle]
+  /// depois que a Web volta do redirect do backend com o handoff na URL.
+  Future<void> completeGoogleWebLogin(String handoff) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() {
+      return ref.read(authRepositoryProvider).completeGoogleWebLogin(handoff);
+    });
+  }
+
   Future<void> logout() async {
     await ref.read(authRepositoryProvider).logout();
     state = const AsyncData(null);

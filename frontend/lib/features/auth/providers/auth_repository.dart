@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_call.dart';
@@ -7,6 +10,7 @@ import '../../../core/models/auth_response.dart';
 import '../../../core/models/user.dart';
 import '../../../core/services/token_storage.dart';
 import 'google_login_launcher.dart';
+import 'google_web_redirect.dart';
 
 part 'auth_repository.g.dart';
 
@@ -53,27 +57,51 @@ class AuthRepository {
     });
   }
 
-  /// Abre o navegador do sistema pro fluxo OAuth do Google (só Desktop por
-  /// enquanto, ver `google_login_launcher.dart`) e troca o handoff recebido
-  /// por tokens de verdade em `/auth/google/exchange` — dali em diante é
-  /// tratado exatamente como um login por senha (mesmo `TokenStorage`).
+  /// Login com Google — Desktop abre o navegador do sistema e escuta um
+  /// servidor HTTP local (`google_login_launcher.dart`); Web navega a
+  /// própria aba pro backend e só volta quando ele redireciona de volta
+  /// pra cá com o handoff na URL (ver `GoogleCallbackScreen`, que chama
+  /// `completeGoogleWebLogin` do lado de cá).
   Future<User> loginWithGoogle() {
+    if (kIsWeb) {
+      return guardApiCall(() async {
+        final webRedirect = '${currentWebOrigin()}/#/auth/google/callback';
+        final authorizeUrl = Uri.parse(
+          '$apiBaseUrl/auth/google/authorize',
+        ).replace(queryParameters: {'webRedirect': webRedirect});
+
+        redirectToWebUrl(authorizeUrl.toString());
+        // A navegação acima descarta essa página — esse Future nunca
+        // precisa resolver de verdade.
+        return Completer<User>().future;
+      });
+    }
+
     return guardApiCall(() async {
       final handoff = await runGoogleDesktopLoginFlow(apiBaseUrl);
-
-      final response = await _dio.post<Map<String, dynamic>>(
-        '/auth/google/exchange',
-        data: {'handoff': handoff},
-      );
-      final data = response.data!;
-      await _tokenStorage.saveTokens(
-        accessToken: data['accessToken'] as String,
-        refreshToken: data['refreshToken'] as String,
-      );
-
-      final userResponse = await _dio.get<Map<String, dynamic>>('/users/me');
-      return User.fromJson(userResponse.data!);
+      return _exchangeGoogleHandoff(handoff);
     });
+  }
+
+  /// Chamado pela `GoogleCallbackScreen` (Web) depois que o backend devolve
+  /// o controle pra própria origem do app com `?handoff=...` na URL.
+  Future<User> completeGoogleWebLogin(String handoff) {
+    return guardApiCall(() => _exchangeGoogleHandoff(handoff));
+  }
+
+  Future<User> _exchangeGoogleHandoff(String handoff) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/auth/google/exchange',
+      data: {'handoff': handoff},
+    );
+    final data = response.data!;
+    await _tokenStorage.saveTokens(
+      accessToken: data['accessToken'] as String,
+      refreshToken: data['refreshToken'] as String,
+    );
+
+    final userResponse = await _dio.get<Map<String, dynamic>>('/users/me');
+    return User.fromJson(userResponse.data!);
   }
 
   /// Só pra decidir se o botão de bypass de dev aparece na tela de login —

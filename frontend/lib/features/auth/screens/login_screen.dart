@@ -215,39 +215,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 )
                               : Text(isRegister ? 'Criar conta' : 'Entrar'),
                         ),
-                        if (!kIsWeb) ...[
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Divider(color: Color(0xFFDDE4EC)),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Divider(color: Color(0xFFDDE4EC)),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
                               ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                                child: Text(
-                                  'ou',
-                                  style: const TextStyle(
-                                    color: Color(0xFF6B7B8F),
-                                  ),
+                              child: Text(
+                                'ou',
+                                style: const TextStyle(
+                                  color: Color(0xFF6B7B8F),
                                 ),
                               ),
-                              const Expanded(
-                                child: Divider(color: Color(0xFFDDE4EC)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          OutlinedButton(
-                            onPressed: isLoading
-                                ? null
-                                : () => ref
-                                      .read(authControllerProvider.notifier)
-                                      .loginWithGoogle(),
-                            child: const Text('Continuar com Google'),
-                          ),
-                        ],
+                            ),
+                            const Expanded(
+                              child: Divider(color: Color(0xFFDDE4EC)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () => ref
+                                    .read(authControllerProvider.notifier)
+                                    .loginWithGoogle(),
+                          child: const Text('Continuar com Google'),
+                        ),
                         if (showDevBypass) ...[
                           const SizedBox(height: 20),
                           const Divider(color: Color(0xFFDDE4EC)),
