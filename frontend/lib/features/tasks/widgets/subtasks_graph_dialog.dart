@@ -155,11 +155,22 @@ class _SubtasksGraphDialog extends ConsumerWidget {
                                 'root': const Color(0xFF7BA3C7),
                                 'subtask': const Color(0xFF4A9E99),
                               }
+                              // O pacote já desenha o rótulo acima do nó
+                              // (vertex_text_renderer_impl.dart) — o texto
+                              // sozinho ficava difícil de reconhecer quando
+                              // nós próximos se sobrepunham; o
+                              // `backgroundColor` aqui dá um "chip" atrás de
+                              // cada rótulo, então ele se destaca do fundo e
+                              // dos outros nós/arestas por trás.
                               ..vertexTextStyleGetter = (vertex, shape) =>
                                   TextStyle(
                                     color: theme.colorScheme.onSurface,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    backgroundColor: theme
+                                        .colorScheme
+                                        .surfaceContainerLow
+                                        .withValues(alpha: 0.9),
                                   )),
                         ),
                 ),
