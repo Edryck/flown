@@ -34,7 +34,7 @@ class FocusSessionRepository {
           'durationSeconds': durationSeconds,
           'startedAt': startedAt.toIso8601String(),
           'completedAt': completedAt.toIso8601String(),
-          if (taskId != null) 'taskId': taskId,
+          'taskId': ?taskId,
         },
       );
       return FocusSession.fromJson(response.data!);

@@ -137,5 +137,8 @@ dist
 
 /generated/prisma
 
+.claude/
+log/
+docs/prototype/
 .vscode/
 build/

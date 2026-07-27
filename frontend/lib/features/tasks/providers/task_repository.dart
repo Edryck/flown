@@ -84,7 +84,7 @@ class TaskRepository {
       final response = await _dio.get<List<dynamic>>(
         '/tasks',
         queryParameters: {
-          if (projectId != null) 'projectId': projectId,
+          'projectId': ?projectId,
           if (q != null && q.isNotEmpty) 'q': q,
           if (isDeleted != null) 'isDeleted': isDeleted.toString(),
         },

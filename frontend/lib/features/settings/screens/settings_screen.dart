@@ -199,8 +199,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           FilledButton(
             onPressed: () {
-              if (formKey.currentState!.validate())
+              if (formKey.currentState!.validate()) {
                 Navigator.pop(context, true);
+              }
             },
             child: const Text('Trocar senha'),
           ),

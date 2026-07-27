@@ -149,8 +149,8 @@ class AuthRepository {
       final response = await _dio.patch<Map<String, dynamic>>(
         '/users/me',
         data: {
-          if (name != null) 'name': name,
-          if (email != null) 'email': email,
+          'name': ?name,
+          'email': ?email,
         },
       );
       return User.fromJson(response.data!);

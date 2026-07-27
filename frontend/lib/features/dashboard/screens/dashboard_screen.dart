@@ -716,8 +716,9 @@ class _WeeklyProductivityCard extends StatelessWidget {
                         final index = value.round();
                         if (index < 0 ||
                             index >= summary.points.length ||
-                            index != value)
+                            index != value) {
                           return const SizedBox.shrink();
+                        }
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
