@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/models/project.dart';
 import '../../../core/models/task.dart';
 import '../../../core/models/task_priority.dart';
 import '../../../core/widgets/screen_gradient_backdrop.dart';
@@ -103,6 +104,11 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
           .where((t) => _filters.priorities.contains(t.priority))
           .toList();
     }
+    if (_filters.projectIds.isNotEmpty) {
+      result = result
+          .where((t) => _filters.projectIds.contains(t.projectId))
+          .toList();
+    }
     if (_filters.onlyOverdue) {
       result = result.where(_isOverdue).toList();
     }
@@ -135,10 +141,14 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     return sorted;
   }
 
-  Future<void> _openFilterDialog(List<String> statusOptions) async {
+  Future<void> _openFilterDialog(
+    List<String> statusOptions,
+    List<Project> projects,
+  ) async {
     final result = await showTaskFilterDialog(
       context,
       statusOptions: statusOptions,
+      projects: projects,
       initial: _filters,
     );
     if (result != null) setState(() => _filters = result);
@@ -276,7 +286,10 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                   ),
                   const Spacer(),
                   OutlinedButton.icon(
-                    onPressed: () => _openFilterDialog(statusOrder),
+                    onPressed: () => _openFilterDialog(
+                      statusOrder,
+                      projectListAsync.valueOrNull ?? const [],
+                    ),
                     icon: Icon(
                       Icons.filter_list,
                       size: 16,

@@ -9,7 +9,23 @@ import '../providers/note_list_controller.dart';
 import '../widgets/note_card.dart';
 import '../widgets/note_form_dialog.dart';
 
-enum _NoteFilter { all, pinned, withProject, withoutProject }
+/// Seleção atual de filtros da tela de Notes — mesmo padrão de
+/// `TaskFilterSelection` (`task_filter_dialog.dart`): conjunto vazio em
+/// `projectIds` significa "sem filtro de projeto". `null` dentro do set
+/// representa o bucket "Sem Projeto" (nota sem `projectId`), ao lado dos ids
+/// reais de projetos específicos.
+class _NoteFilterSelection {
+  const _NoteFilterSelection({
+    this.pinnedOnly = false,
+    this.projectIds = const {},
+  });
+
+  final bool pinnedOnly;
+  final Set<String?> projectIds;
+
+  int get activeCount =>
+      (pinnedOnly ? 1 : 0) + (projectIds.isNotEmpty ? 1 : 0);
+}
 
 enum _NoteSort { updatedAt, title, createdAt }
 
@@ -32,7 +48,7 @@ class NotesScreen extends ConsumerStatefulWidget {
 class _NotesScreenState extends ConsumerState<NotesScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  _NoteFilter _filter = _NoteFilter.all;
+  _NoteFilterSelection _filter = const _NoteFilterSelection();
   _NoteSort _sort = _NoteSort.updatedAt;
 
   @override
@@ -51,14 +67,15 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
             note.tags.any((tag) => tag.toLowerCase().contains(query));
       }).toList();
     }
-    return switch (_filter) {
-      _NoteFilter.all => result,
-      _NoteFilter.pinned => result.where((n) => n.isPinned).toList(),
-      _NoteFilter.withProject =>
-        result.where((n) => n.projectId != null).toList(),
-      _NoteFilter.withoutProject =>
-        result.where((n) => n.projectId == null).toList(),
-    };
+    if (_filter.pinnedOnly) {
+      result = result.where((n) => n.isPinned).toList();
+    }
+    if (_filter.projectIds.isNotEmpty) {
+      result = result
+          .where((n) => _filter.projectIds.contains(n.projectId))
+          .toList();
+    }
+    return result;
   }
 
   List<Note> _applySort(List<Note> notes) {
@@ -148,6 +165,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
               onSearchChanged: (value) => setState(() => _searchQuery = value),
               filter: _filter,
               onFilterChanged: (f) => setState(() => _filter = f),
+              projects: projectsAsync.valueOrNull ?? const [],
               sort: _sort,
               onSortChanged: (s) => setState(() => _sort = s),
             ),
@@ -331,31 +349,25 @@ class _EmptyState extends StatelessWidget {
 /// Busca + Filtrar (diálogo) + Ordenar (menu) — mesmo padrão da tela de
 /// Tasks e agora de Projects (ver `_Toolbar`/`_ProjectFilterDialog` em
 /// `projects_screen.dart`): filtro escondido atrás de um botão em vez de
-/// pílulas sempre visíveis. `_NoteFilter` é seleção única, então o diálogo
-/// usa `ChoiceChip` (grupo mutuamente exclusivo).
+/// pílulas sempre visíveis.
 class _Toolbar extends StatelessWidget {
   const _Toolbar({
     required this.searchController,
     required this.onSearchChanged,
     required this.filter,
     required this.onFilterChanged,
+    required this.projects,
     required this.sort,
     required this.onSortChanged,
   });
 
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
-  final _NoteFilter filter;
-  final ValueChanged<_NoteFilter> onFilterChanged;
+  final _NoteFilterSelection filter;
+  final ValueChanged<_NoteFilterSelection> onFilterChanged;
+  final List<Project> projects;
   final _NoteSort sort;
   final ValueChanged<_NoteSort> onSortChanged;
-
-  static const _filterLabels = {
-    _NoteFilter.all: 'Todas',
-    _NoteFilter.pinned: 'Fixadas',
-    _NoteFilter.withProject: 'Com Projeto',
-    _NoteFilter.withoutProject: 'Sem Projeto',
-  };
 
   static const _sortLabels = {
     _NoteSort.updatedAt: 'Mais Recentes',
@@ -364,9 +376,10 @@ class _Toolbar extends StatelessWidget {
   };
 
   Future<void> _openFilterDialog(BuildContext context) async {
-    final selected = await showDialog<_NoteFilter>(
+    final selected = await showDialog<_NoteFilterSelection>(
       context: context,
-      builder: (context) => _NoteFilterDialog(initial: filter),
+      builder: (context) =>
+          _NoteFilterDialog(initial: filter, projects: projects),
     );
     if (selected != null) onFilterChanged(selected);
   }
@@ -431,12 +444,12 @@ class _Toolbar extends StatelessWidget {
             icon: Icon(
               Icons.filter_list,
               size: 16,
-              color: filter != _NoteFilter.all ? theme.colorScheme.primary : null,
+              color: filter.activeCount > 0 ? theme.colorScheme.primary : null,
             ),
             label: Text(
-              filter == _NoteFilter.all
-                  ? 'Filtrar'
-                  : 'Filtrar: ${_filterLabels[filter]}',
+              filter.activeCount > 0
+                  ? 'Filtrar (${filter.activeCount})'
+                  : 'Filtrar',
             ),
           ),
           const SizedBox(width: 8),
@@ -454,39 +467,82 @@ class _Toolbar extends StatelessWidget {
 }
 
 class _NoteFilterDialog extends StatefulWidget {
-  const _NoteFilterDialog({required this.initial});
+  const _NoteFilterDialog({required this.initial, required this.projects});
 
-  final _NoteFilter initial;
+  final _NoteFilterSelection initial;
+  final List<Project> projects;
 
   @override
   State<_NoteFilterDialog> createState() => _NoteFilterDialogState();
 }
 
 class _NoteFilterDialogState extends State<_NoteFilterDialog> {
-  late _NoteFilter _filter = widget.initial;
+  late bool _pinnedOnly = widget.initial.pinnedOnly;
+  late Set<String?> _projectIds = {...widget.initial.projectIds};
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return AlertDialog(
       title: const Text('Filtrar anotações'),
       content: SizedBox(
         width: 320,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final f in _NoteFilter.values)
-              ChoiceChip(
-                label: Text(_Toolbar._filterLabels[f]!),
-                selected: _filter == f,
-                onSelected: (_) => setState(() => _filter = f),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Projeto', style: theme.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text('Sem Projeto'),
+                    selected: _projectIds.contains(null),
+                    onSelected: (selected) => setState(() {
+                      if (selected) {
+                        _projectIds.add(null);
+                      } else {
+                        _projectIds.remove(null);
+                      }
+                    }),
+                  ),
+                  for (final project in widget.projects)
+                    FilterChip(
+                      label: Text(project.name),
+                      selected: _projectIds.contains(project.id),
+                      onSelected: (selected) => setState(() {
+                        if (selected) {
+                          _projectIds.add(project.id);
+                        } else {
+                          _projectIds.remove(project.id);
+                        }
+                      }),
+                    ),
+                ],
               ),
-          ],
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: _pinnedOnly,
+                onChanged: (value) =>
+                    setState(() => _pinnedOnly = value ?? false),
+                title: const Text('Somente fixadas'),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => setState(() => _filter = _NoteFilter.all),
+          onPressed: () => setState(() {
+            _pinnedOnly = false;
+            _projectIds = {};
+          }),
           child: const Text('Limpar'),
         ),
         TextButton(
@@ -494,7 +550,13 @@ class _NoteFilterDialogState extends State<_NoteFilterDialog> {
           child: const Text('Cancelar'),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(context, _filter),
+          onPressed: () => Navigator.pop(
+            context,
+            _NoteFilterSelection(
+              pinnedOnly: _pinnedOnly,
+              projectIds: _projectIds,
+            ),
+          ),
           child: const Text('Aplicar'),
         ),
       ],
