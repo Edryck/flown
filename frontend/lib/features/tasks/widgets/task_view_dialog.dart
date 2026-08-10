@@ -8,6 +8,7 @@ import '../../../core/models/project_type.dart';
 import '../../../core/models/task.dart';
 import '../../../core/widgets/badge_size.dart';
 import '../../../core/widgets/priority_badge.dart';
+import '../../../core/widgets/status_badge.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../../projects/providers/project_type_repository.dart';
 import '../providers/task_list_controller.dart';
@@ -95,10 +96,12 @@ class _TaskViewDialog extends ConsumerWidget {
         : projects.where((p) => p.id == task.projectId).firstOrNull?.name;
     final availableStatus = _availableStatusFor(task, projects, types);
     final checklist = task.checklist;
-    final dueDate = effectiveDueDate(
-      task,
-      tasksAsync.valueOrNull ?? const <Task>[],
-    );
+    final allTasks = tasksAsync.valueOrNull ?? const <Task>[];
+    final dueDate = effectiveDueDate(task, allTasks);
+    final subtasks = task.parentTaskId == null
+        ? subtasksOf(task, allTasks)
+        : const <Task>[];
+    final statusOrder = resolveStatusOrder(types, allTasks);
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -218,6 +221,67 @@ class _TaskViewDialog extends ConsumerWidget {
                   backgroundColor: colorScheme.surfaceContainerHighest,
                 ),
               ),
+              if (subtasks.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Subtarefas (${subtasks.length})',
+                      style: theme.textTheme.labelLarge,
+                    ),
+                    TextButton.icon(
+                      onPressed: () => showTaskFormDialog(
+                        context,
+                        initialParentTaskId: task.id,
+                        initialProjectId: task.projectId,
+                      ),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Adicionar Subtarefa'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                for (final subtask in subtasks)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => showTaskViewDialog(context, task: subtask),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                subtask.title,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            StatusBadge(
+                              label: statusLabelPtBr(subtask.status),
+                              colorIndex: statusOrder.isEmpty
+                                  ? 0
+                                  : statusOrder
+                                      .indexOf(subtask.status)
+                                      .clamp(0, statusOrder.length - 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
               if (checklist.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 Text('Lista de Verificação', style: theme.textTheme.labelLarge),

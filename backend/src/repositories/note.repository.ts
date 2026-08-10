@@ -35,13 +35,21 @@ export async function findNotesByUser(
 }
 
 export async function searchNotes(userId: string, query: string) {
-  return prisma.note.findMany({
-    where: {
-      userId,
-      isDeleted: false,
-      OR: [{ title: { contains: query } }, { content: { contains: query } }],
-    },
+  // Mesmo motivo de `searchTasks` em `task.repository.ts`: `tags` é Json no
+  // SQLite, sem filtro de substring suportado pelo Prisma nesse provider —
+  // filtra em memória.
+  const notes = await prisma.note.findMany({
+    where: { userId, isDeleted: false },
     orderBy: { updatedAt: "desc" },
+  });
+  const q = query.toLowerCase();
+  return notes.filter((note) => {
+    const tags = Array.isArray(note.tags) ? (note.tags as string[]) : [];
+    return (
+      note.title.toLowerCase().includes(q) ||
+      note.content.toLowerCase().includes(q) ||
+      tags.some((tag) => tag.toLowerCase().includes(q))
+    );
   });
 }
 

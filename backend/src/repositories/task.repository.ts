@@ -45,13 +45,22 @@ export async function findTasksByUser(
 }
 
 export async function searchTasks(userId: string, query: string) {
-  return prisma.task.findMany({
-    where: {
-      userId,
-      isDeleted: false,
-      OR: [{ title: { contains: query } }, { description: { contains: query } }],
-    },
+  // `tags` é Json no SQLite — o provider não suporta `string_contains`/
+  // `array_contains` pra esse tipo (só Postgres/MySQL), então filtra em
+  // memória em vez de no `where` do Prisma. Volume baixo (app pessoal, sem
+  // paginação hoje), então buscar tudo do usuário e filtrar é aceitável.
+  const tasks = await prisma.task.findMany({
+    where: { userId, isDeleted: false },
     orderBy: { updatedAt: "desc" },
+  });
+  const q = query.toLowerCase();
+  return tasks.filter((task) => {
+    const tags = Array.isArray(task.tags) ? (task.tags as string[]) : [];
+    return (
+      task.title.toLowerCase().includes(q) ||
+      (task.description ?? "").toLowerCase().includes(q) ||
+      tags.some((tag) => tag.toLowerCase().includes(q))
+    );
   });
 }
 

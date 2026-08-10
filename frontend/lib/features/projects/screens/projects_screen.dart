@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/models/project.dart';
 import '../../../core/models/task.dart';
 import '../../../core/widgets/metric_card.dart';
 import '../../../core/widgets/screen_gradient_backdrop.dart';
@@ -10,6 +9,7 @@ import '../providers/project_list_controller.dart';
 import '../utils/project_stats.dart';
 import '../widgets/project_card.dart';
 import '../widgets/project_form_dialog.dart';
+import '../widgets/project_view_dialog.dart';
 
 enum _ProjectFilter { all, active, done, overdue }
 
@@ -41,31 +41,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _confirmDelete(Project project) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remover projeto?'),
-        content: Text(
-          'Tem certeza que deseja remover o projeto "${project.name}"? Esta ação não pode ser desfeita.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remover'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      await ref.read(projectListControllerProvider.notifier).delete(project.id);
-    }
   }
 
   @override
@@ -212,21 +187,23 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               crossAxisCount: columns,
                               mainAxisSpacing: 24,
                               crossAxisSpacing: 24,
-                              // Com 260 o ProjectCard ficava 1px mais alto que
-                              // a célula (RenderFlex overflow) quando tinha
-                              // progresso + próximo prazo juntos — folga extra.
-                              mainAxisExtent: 288,
+                              // Ajustado depois que os botões Editar/Remover
+                              // saíram do card (foram pro ProjectViewDialog) e
+                              // os espaçamentos internos encolheram — valor
+                              // sensível a overflow de 1px (ver histórico:
+                              // 260 estourava com progresso + prazo juntos),
+                              // conferir visualmente se sobrar/faltar espaço.
+                              mainAxisExtent: 232,
                             ),
                             itemBuilder: (context, index) {
                               final project = filtered[index];
                               return ProjectCard(
                                 project: project,
                                 stats: statsById[project.id]!,
-                                onEdit: () => showProjectFormDialog(
+                                onTap: () => showProjectViewDialog(
                                   context,
                                   project: project,
                                 ),
-                                onDelete: () => _confirmDelete(project),
                               );
                             },
                           );

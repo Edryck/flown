@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/notes/widgets/note_form_dialog.dart';
-import '../../features/projects/widgets/project_form_dialog.dart';
+import '../../features/projects/widgets/project_view_dialog.dart';
 import '../../features/search/providers/search_repository.dart';
-import '../../features/tasks/widgets/task_form_dialog.dart';
+import '../../features/tasks/widgets/task_view_dialog.dart';
 import '../models/note.dart';
 import '../models/project.dart';
 import '../models/task.dart';
@@ -24,7 +24,10 @@ import 'notification_bell.dart';
 ///     dropdown ancorado no próprio campo (`OverlayPortal` +
 ///     `CompositedTransformFollower`), igual à ideia de "busca global na
 ///     navbar" pedida — clicar num resultado navega pra tela certa e já abre
-///     o item pra edição no modal correspondente. Fechar ao clicar fora usa
+///     o item no modal correspondente: modo visualização pra Task/Project
+///     (mesmo diálogo que os cards abrem), form de edição pra Note (sem
+///     diálogo de visualização próprio — mesmo padrão do clique em
+///     `NoteCard`). Fechar ao clicar fora usa
 ///     `TapRegion` com `groupId`, mesmo mecanismo de
 ///     `GlobalFloatingActionButton` (mas precisa de `groupId` aqui porque o
 ///     painel de resultados mora na `Overlay`, fora da subárvore do campo);
@@ -122,13 +125,13 @@ class _TopNavBarState extends ConsumerState<TopNavBar> {
   void _openTask(Task task) {
     _closeSearch();
     widget.onNavigate('/tasks');
-    showTaskFormDialog(context, task: task);
+    showTaskViewDialog(context, task: task);
   }
 
   void _openProject(Project project) {
     _closeSearch();
     widget.onNavigate('/projects');
-    showProjectFormDialog(context, project: project);
+    showProjectViewDialog(context, project: project);
   }
 
   void _openNote(Note note) {
