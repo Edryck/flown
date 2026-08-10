@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -26,13 +27,19 @@ import '../utils/task_status_colors.dart';
 /// abre o card em `TaskFormScreen` pra editar/mudar status/marcar como
 /// concluída — o protótipo não tinha nenhuma ação de clique no card.
 ///
-/// Cada card usa `LongPressDraggable` (segurar ~150ms pra iniciar o
-/// arraste), não `Draggable` puro — o card está dentro de uma coluna
-/// rolável (`ListView`) e também é tocável (`onTapTask`); com `Draggable`
-/// simples, o reconhecedor de arraste "imediato" entra em conflito com o
-/// scroll da lista e com o toque, deixando ambos intermitentes. Exigir uma
-/// pressão longa antes do arraste desambigua os três gestos de forma
-/// confiável.
+/// Cada card usa `LongPressDraggable` (segurar pra iniciar o arraste), não
+/// `Draggable` puro — o card está dentro de uma coluna rolável (`ListView`)
+/// e também é tocável (`onTapTask`); com `Draggable` simples, o
+/// reconhecedor de arraste "imediato" entra em conflito com o scroll da
+/// lista e com o toque, deixando ambos intermitentes. Exigir uma pressão
+/// longa antes do arraste desambigua os três gestos de forma confiável.
+///
+/// `delay` usa `kLongPressTimeout` (500ms, o padrão do próprio Flutter pra
+/// distinguir toque de pressão longa) — um valor menor (150ms testado antes)
+/// fica perto demais da duração natural de um clique em mouse/trackpad, que
+/// varia bastante entre dispositivos; cliques normais acabavam ultrapassando
+/// esse delay e sendo reconhecidos como início de arraste, exigindo 2
+/// cliques rápidos pra abrir a tarefa em vez de 1.
 class TasksKanbanView extends StatelessWidget {
   const TasksKanbanView({
     super.key,
@@ -209,7 +216,7 @@ class _KanbanColumnState extends State<_KanbanColumn> {
                             final task = widget.tasks[index];
                             return LongPressDraggable<Task>(
                               data: task,
-                              delay: const Duration(milliseconds: 150),
+                              delay: kLongPressTimeout,
                               feedback: Material(
                                 color: Colors.transparent,
                                 child: SizedBox(
