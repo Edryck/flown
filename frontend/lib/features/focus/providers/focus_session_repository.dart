@@ -32,8 +32,8 @@ class FocusSessionRepository {
         data: {
           'type': type.wireValue,
           'durationSeconds': durationSeconds,
-          'startedAt': startedAt.toIso8601String(),
-          'completedAt': completedAt.toIso8601String(),
+          'startedAt': startedAt.toUtc().toIso8601String(),
+          'completedAt': completedAt.toUtc().toIso8601String(),
           'taskId': ?taskId,
         },
       );

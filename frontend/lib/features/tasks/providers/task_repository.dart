@@ -61,7 +61,7 @@ class TaskInput {
     put('description', description, (v) => v);
     put('status', status, (v) => v);
     put('priority', priority, (v) => (v as TaskPriority?)?.wireValue);
-    put('dueDate', dueDate, (v) => (v as DateTime?)?.toIso8601String());
+    put('dueDate', dueDate, (v) => (v as DateTime?)?.toUtc().toIso8601String());
     put('progress', progress, (v) => v);
     put('estimatedTime', estimatedTime, (v) => v);
     put('tags', tags, (v) => v);

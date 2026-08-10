@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'local_date_time_converter.dart';
+
 part 'project.freezed.dart';
 part 'project.g.dart';
 
@@ -13,11 +15,11 @@ class Project with _$Project {
     required String color,
     required bool isArchived,
     required bool isDeleted,
-    required DateTime? deletedAt,
+    @NullableLocalDateTimeConverter() required DateTime? deletedAt,
     required int order,
     required String typeId,
-    required DateTime createdAt,
-    required DateTime updatedAt,
+    @LocalDateTimeConverter() required DateTime createdAt,
+    @LocalDateTimeConverter() required DateTime updatedAt,
   }) = _Project;
 
   factory Project.fromJson(Map<String, dynamic> json) => _$ProjectFromJson(json);

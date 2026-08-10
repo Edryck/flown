@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'focus_session_type.dart';
+import 'local_date_time_converter.dart';
 
 part 'focus_session.freezed.dart';
 part 'focus_session.g.dart';
@@ -14,10 +15,10 @@ class FocusSession with _$FocusSession {
     required String id,
     required FocusSessionKind type,
     required int durationSeconds,
-    required DateTime startedAt,
-    required DateTime? completedAt,
+    @LocalDateTimeConverter() required DateTime startedAt,
+    @NullableLocalDateTimeConverter() required DateTime? completedAt,
     required String? taskId,
-    required DateTime createdAt,
+    @LocalDateTimeConverter() required DateTime createdAt,
   }) = _FocusSession;
 
   factory FocusSession.fromJson(Map<String, dynamic> json) => _$FocusSessionFromJson(json);

@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'local_date_time_converter.dart';
+
 part 'user.freezed.dart';
 part 'user.g.dart';
 
@@ -11,8 +13,8 @@ class User with _$User {
     required String id,
     required String name,
     required String email,
-    required DateTime createdAt,
-    required DateTime updatedAt,
+    @LocalDateTimeConverter() required DateTime createdAt,
+    @LocalDateTimeConverter() required DateTime updatedAt,
   }) = _User;
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);

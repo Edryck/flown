@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'local_date_time_converter.dart';
+
 part 'app_notification.freezed.dart';
 part 'app_notification.g.dart';
 
@@ -14,7 +16,7 @@ class AppNotification with _$AppNotification {
     required Map<String, dynamic> payload,
     required String? taskId,
     required bool isRead,
-    required DateTime createdAt,
+    @LocalDateTimeConverter() required DateTime createdAt,
   }) = _AppNotification;
 
   factory AppNotification.fromJson(Map<String, dynamic> json) =>

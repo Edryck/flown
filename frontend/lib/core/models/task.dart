@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'checklist_item.dart';
+import 'local_date_time_converter.dart';
 import 'task_priority.dart';
 
 part 'task.freezed.dart';
@@ -20,19 +21,19 @@ class Task with _$Task {
     required String? description,
     required String status,
     required TaskPriority priority,
-    required DateTime? dueDate,
+    @NullableLocalDateTimeConverter() required DateTime? dueDate,
     required int? progress,
     required String? estimatedTime,
     required List<String> tags,
     required List<ChecklistItem> checklist,
     required int order,
     required bool isDeleted,
-    required DateTime? deletedAt,
-    required DateTime? completedAt,
+    @NullableLocalDateTimeConverter() required DateTime? deletedAt,
+    @NullableLocalDateTimeConverter() required DateTime? completedAt,
     required String? projectId,
     required String? parentTaskId,
-    required DateTime createdAt,
-    required DateTime updatedAt,
+    @LocalDateTimeConverter() required DateTime createdAt,
+    @LocalDateTimeConverter() required DateTime updatedAt,
   }) = _Task;
 
   factory Task.fromJson(Map<String, dynamic> json) => _$TaskFromJson(json);

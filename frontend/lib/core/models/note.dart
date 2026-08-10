@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'local_date_time_converter.dart';
+
 part 'note.freezed.dart';
 part 'note.g.dart';
 
@@ -14,10 +16,10 @@ class Note with _$Note {
     required bool isPinned,
     required int order,
     required bool isDeleted,
-    required DateTime? deletedAt,
+    @NullableLocalDateTimeConverter() required DateTime? deletedAt,
     required String? projectId,
-    required DateTime createdAt,
-    required DateTime updatedAt,
+    @LocalDateTimeConverter() required DateTime createdAt,
+    @LocalDateTimeConverter() required DateTime updatedAt,
   }) = _Note;
 
   factory Note.fromJson(Map<String, dynamic> json) => _$NoteFromJson(json);
