@@ -143,3 +143,9 @@ docs/prototype/
 .vscode/
 build/
 /start-flown.bat
+# Config local do DevTools, nada relevante
+frontend/devtools_options.yaml
+# Backup do banco de dados 
+backend/dev.db.*
+# Atalho do Windows
+start-flown.lnk
