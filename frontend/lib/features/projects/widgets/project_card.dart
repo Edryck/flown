@@ -66,7 +66,7 @@ class _ProjectCardState extends State<ProjectCard> {
           children: [
             Container(height: 4, color: projectColor),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -99,18 +99,18 @@ class _ProjectCardState extends State<ProjectCard> {
                       ),
                       const SizedBox(width: 12),
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 32,
+                        height: 32,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: projectColor.withValues(alpha: _hovering ? 0.3 : 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(Icons.folder_outlined, color: projectColor, size: 20),
+                        child: Icon(Icons.folder_outlined, color: projectColor, size: 16),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       DerivedStatusBadge(stats: stats),
@@ -126,7 +126,7 @@ class _ProjectCardState extends State<ProjectCard> {
                     ],
                   ),
                   if (stats.taskCount > 0) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -148,7 +148,7 @@ class _ProjectCardState extends State<ProjectCard> {
                     ),
                   ],
                   if (stats.nextDueDate != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Icon(Icons.calendar_today_outlined, size: 16, color: colorScheme.onSurfaceVariant),

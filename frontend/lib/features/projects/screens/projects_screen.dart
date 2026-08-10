@@ -187,10 +187,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               crossAxisCount: columns,
                               mainAxisSpacing: 24,
                               crossAxisSpacing: 24,
-                              // Com 260 o ProjectCard ficava 1px mais alto que
-                              // a célula (RenderFlex overflow) quando tinha
-                              // progresso + próximo prazo juntos — folga extra.
-                              mainAxisExtent: 288,
+                              // Ajustado depois que os botões Editar/Remover
+                              // saíram do card (foram pro ProjectViewDialog) e
+                              // os espaçamentos internos encolheram — valor
+                              // sensível a overflow de 1px (ver histórico:
+                              // 260 estourava com progresso + prazo juntos),
+                              // conferir visualmente se sobrar/faltar espaço.
+                              mainAxisExtent: 232,
                             ),
                             itemBuilder: (context, index) {
                               final project = filtered[index];
