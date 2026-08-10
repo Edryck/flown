@@ -8,7 +8,10 @@ import '../utils/project_stats.dart';
 /// Card de projeto na grade — tradução fiel do card de `Projects.tsx`
 /// (docs/prototype/screens/projects.md): barra de cor no topo, nome +
 /// descrição, badge de status + badge "Atrasado", contagem de tasks, barra
-/// de progresso, próximo prazo, e ações Editar/Remover reveladas no hover.
+/// de progresso, próximo prazo. Sem ações próprias — o card inteiro é
+/// clicável (`onTap`) e abre `ProjectViewDialog`, que concentra Editar/
+/// Remover (mesmo espírito de `TasksKanbanView`, onde o card só notifica
+/// toque e quem abre o diálogo é a tela).
 ///
 /// O badge de status não é o `StatusBadge` compartilhado (que espera um
 /// status de verdade vindo do backend) — aqui é um rótulo calculado a
@@ -19,14 +22,12 @@ class ProjectCard extends StatefulWidget {
     super.key,
     required this.project,
     required this.stats,
-    required this.onEdit,
-    required this.onDelete,
+    required this.onTap,
   });
 
   final Project project;
   final ProjectStats stats;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback onTap;
 
   @override
   State<ProjectCard> createState() => _ProjectCardState();
@@ -57,7 +58,9 @@ class _ProjectCardState extends State<ProjectCard> {
               : null,
         ),
         clipBehavior: Clip.antiAlias,
-        child: Column(
+        child: InkWell(
+          onTap: widget.onTap,
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -98,20 +101,22 @@ class _ProjectCardState extends State<ProjectCard> {
                       Container(
                         width: 40,
                         height: 40,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: projectColor.withValues(alpha: _hovering ? 0.3 : 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        child: Icon(Icons.folder_outlined, color: projectColor, size: 20),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _DerivedStatusBadge(stats: stats),
+                      DerivedStatusBadge(stats: stats),
                       if (stats.isOverdue) ...[
                         const SizedBox(width: 8),
-                        _OverdueBadge(semantic: semantic),
+                        OverdueBadge(semantic: semantic),
                       ],
                       const Spacer(),
                       Text(
@@ -155,47 +160,19 @@ class _ProjectCardState extends State<ProjectCard> {
                       ],
                     ),
                   ],
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 150),
-                    opacity: _hovering ? 1 : 0,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Container(
-                        padding: const EdgeInsets.only(top: 12),
-                        decoration: BoxDecoration(border: Border(top: BorderSide(color: colorScheme.outlineVariant))),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextButton.icon(
-                                onPressed: widget.onEdit,
-                                icon: const Icon(Icons.edit_outlined, size: 16),
-                                label: const Text('Editar'),
-                              ),
-                            ),
-                            Expanded(
-                              child: TextButton.icon(
-                                onPressed: widget.onDelete,
-                                icon: Icon(Icons.delete_outline, size: 16, color: colorScheme.error),
-                                label: Text('Remover', style: TextStyle(color: colorScheme.error)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
           ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _DerivedStatusBadge extends StatelessWidget {
-  const _DerivedStatusBadge({required this.stats});
+class DerivedStatusBadge extends StatelessWidget {
+  const DerivedStatusBadge({super.key, required this.stats});
 
   final ProjectStats stats;
 
@@ -218,8 +195,8 @@ class _DerivedStatusBadge extends StatelessWidget {
   }
 }
 
-class _OverdueBadge extends StatelessWidget {
-  const _OverdueBadge({required this.semantic});
+class OverdueBadge extends StatelessWidget {
+  const OverdueBadge({super.key, required this.semantic});
 
   final AppSemanticColors semantic;
 
