@@ -328,10 +328,11 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// Busca + filtro + ordenação — mesmo padrão visual de `_Toolbar` em
-/// `ProjectsScreen` (busca e pílulas de filtro num `Wrap` à esquerda,
-/// ordenação num `DropdownButton` fixo à direita), adaptado pros filtros
-/// que fazem sentido pra uma anotação (sem status/prioridade como task).
+/// Busca + Filtrar (diálogo) + Ordenar (menu) — mesmo padrão da tela de
+/// Tasks e agora de Projects (ver `_Toolbar`/`_ProjectFilterDialog` em
+/// `projects_screen.dart`): filtro escondido atrás de um botão em vez de
+/// pílulas sempre visíveis. `_NoteFilter` é seleção única, então o diálogo
+/// usa `ChoiceChip` (grupo mutuamente exclusivo).
 class _Toolbar extends StatelessWidget {
   const _Toolbar({
     required this.searchController,
@@ -362,6 +363,39 @@ class _Toolbar extends StatelessWidget {
     _NoteSort.createdAt: 'Por Data de Criação',
   };
 
+  Future<void> _openFilterDialog(BuildContext context) async {
+    final selected = await showDialog<_NoteFilter>(
+      context: context,
+      builder: (context) => _NoteFilterDialog(initial: filter),
+    );
+    if (selected != null) onFilterChanged(selected);
+  }
+
+  Future<void> _openSortMenu(BuildContext buttonContext) async {
+    final button = buttonContext.findRenderObject() as RenderBox;
+    final overlay =
+        Overlay.of(buttonContext).context.findRenderObject() as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final selected = await showMenu<_NoteSort>(
+      context: buttonContext,
+      position: position,
+      items: [
+        for (final s in _NoteSort.values)
+          PopupMenuItem(value: s, child: Text(_sortLabels[s]!)),
+      ],
+    );
+    if (selected != null) onSortChanged(selected);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -374,57 +408,96 @@ class _Toolbar extends StatelessWidget {
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Expanded(
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 260,
-                  height: 36,
-                  child: TextField(
-                    controller: searchController,
-                    onChanged: onSearchChanged,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      hintText: 'Pesquisar anotações...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
+          SizedBox(
+            width: 260,
+            height: 36,
+            child: TextField(
+              controller: searchController,
+              onChanged: onSearchChanged,
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search, size: 18),
+                hintText: 'Pesquisar anotações...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                for (final f in _NoteFilter.values)
-                  filter == f
-                      ? FilledButton(
-                          onPressed: () => onFilterChanged(f),
-                          child: Text(_filterLabels[f]!),
-                        )
-                      : OutlinedButton(
-                          onPressed: () => onFilterChanged(f),
-                          child: Text(_filterLabels[f]!),
-                        ),
-              ],
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          DropdownButton<_NoteSort>(
-            value: sort,
-            underline: const SizedBox.shrink(),
-            items: [
-              for (final s in _NoteSort.values)
-                DropdownMenuItem(value: s, child: Text(_sortLabels[s]!)),
-            ],
-            onChanged: (value) {
-              if (value != null) onSortChanged(value);
-            },
+          const Spacer(),
+          OutlinedButton.icon(
+            onPressed: () => _openFilterDialog(context),
+            icon: Icon(
+              Icons.filter_list,
+              size: 16,
+              color: filter != _NoteFilter.all ? theme.colorScheme.primary : null,
+            ),
+            label: Text(
+              filter == _NoteFilter.all
+                  ? 'Filtrar'
+                  : 'Filtrar: ${_filterLabels[filter]}',
+            ),
+          ),
+          const SizedBox(width: 8),
+          Builder(
+            builder: (buttonContext) => OutlinedButton.icon(
+              onPressed: () => _openSortMenu(buttonContext),
+              icon: const Icon(Icons.sort, size: 16),
+              label: Text('Ordenar: ${_sortLabels[sort]}'),
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NoteFilterDialog extends StatefulWidget {
+  const _NoteFilterDialog({required this.initial});
+
+  final _NoteFilter initial;
+
+  @override
+  State<_NoteFilterDialog> createState() => _NoteFilterDialogState();
+}
+
+class _NoteFilterDialogState extends State<_NoteFilterDialog> {
+  late _NoteFilter _filter = widget.initial;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Filtrar anotações'),
+      content: SizedBox(
+        width: 320,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final f in _NoteFilter.values)
+              ChoiceChip(
+                label: Text(_Toolbar._filterLabels[f]!),
+                selected: _filter == f,
+                onSelected: (_) => setState(() => _filter = f),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => setState(() => _filter = _NoteFilter.all),
+          child: const Text('Limpar'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _filter),
+          child: const Text('Aplicar'),
+        ),
+      ],
     );
   }
 }

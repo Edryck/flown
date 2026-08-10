@@ -302,6 +302,14 @@ class _MetricsRow extends StatelessWidget {
   }
 }
 
+/// Busca + Filtrar (diálogo) + Ordenar (menu) — mesmo padrão da tela de
+/// Tasks (`task_filter_dialog.dart`/`_openSortMenu` em `tasks_screen.dart`),
+/// não mais pílulas sempre visíveis: o usuário achou o toolbar de pílulas
+/// poluído e preferiu o filtro escondido atrás de um botão, como já era em
+/// Tasks. `_ProjectFilter` é seleção única (diferente de Tasks, que permite
+/// combinar vários status/prioridades), então o diálogo usa `ChoiceChip`
+/// (um grupo mutuamente exclusivo) em vez do `FilterChip` multi-seleção de
+/// Tasks.
 class _Toolbar extends StatelessWidget {
   const _Toolbar({
     required this.searchController,
@@ -332,6 +340,39 @@ class _Toolbar extends StatelessWidget {
     _ProjectSort.createdAt: 'Por Data de Criação',
   };
 
+  Future<void> _openFilterDialog(BuildContext context) async {
+    final selected = await showDialog<_ProjectFilter>(
+      context: context,
+      builder: (context) => _ProjectFilterDialog(initial: filter),
+    );
+    if (selected != null) onFilterChanged(selected);
+  }
+
+  Future<void> _openSortMenu(BuildContext buttonContext) async {
+    final button = buttonContext.findRenderObject() as RenderBox;
+    final overlay =
+        Overlay.of(buttonContext).context.findRenderObject() as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final selected = await showMenu<_ProjectSort>(
+      context: buttonContext,
+      position: position,
+      items: [
+        for (final s in _ProjectSort.values)
+          PopupMenuItem(value: s, child: Text(_sortLabels[s]!)),
+      ],
+    );
+    if (selected != null) onSortChanged(selected);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -343,63 +384,99 @@ class _Toolbar extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
-      // Row (não Wrap) no nível de fora: `Spacer`/`Expanded` só funcionam
-      // dentro de um Flex (Row/Column) — direto num `Wrap` eles disparam
-      // "Incorrect use of ParentDataWidget". A busca+filtros ficam num
-      // `Wrap` interno (podem quebrar linha), a ordenação fica de fora,
-      // sempre alinhada à direita via `Expanded` no Row.
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Expanded(
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 260,
-                  height: 36,
-                  child: TextField(
-                    controller: searchController,
-                    onChanged: onSearchChanged,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      hintText: 'Pesquisar projetos…',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
+          SizedBox(
+            width: 260,
+            height: 36,
+            child: TextField(
+              controller: searchController,
+              onChanged: onSearchChanged,
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search, size: 18),
+                hintText: 'Pesquisar projetos…',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                for (final f in _ProjectFilter.values)
-                  filter == f
-                      ? FilledButton(
-                          onPressed: () => onFilterChanged(f),
-                          child: Text(_filterLabels[f]!),
-                        )
-                      : OutlinedButton(
-                          onPressed: () => onFilterChanged(f),
-                          child: Text(_filterLabels[f]!),
-                        ),
-              ],
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          DropdownButton<_ProjectSort>(
-            value: sort,
-            underline: const SizedBox.shrink(),
-            items: [
-              for (final s in _ProjectSort.values)
-                DropdownMenuItem(value: s, child: Text(_sortLabels[s]!)),
-            ],
-            onChanged: (value) {
-              if (value != null) onSortChanged(value);
-            },
+          const Spacer(),
+          OutlinedButton.icon(
+            onPressed: () => _openFilterDialog(context),
+            icon: Icon(
+              Icons.filter_list,
+              size: 16,
+              color: filter != _ProjectFilter.all
+                  ? theme.colorScheme.primary
+                  : null,
+            ),
+            label: Text(
+              filter == _ProjectFilter.all
+                  ? 'Filtrar'
+                  : 'Filtrar: ${_filterLabels[filter]}',
+            ),
+          ),
+          const SizedBox(width: 8),
+          Builder(
+            builder: (buttonContext) => OutlinedButton.icon(
+              onPressed: () => _openSortMenu(buttonContext),
+              icon: const Icon(Icons.sort, size: 16),
+              label: Text('Ordenar: ${_sortLabels[sort]}'),
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProjectFilterDialog extends StatefulWidget {
+  const _ProjectFilterDialog({required this.initial});
+
+  final _ProjectFilter initial;
+
+  @override
+  State<_ProjectFilterDialog> createState() => _ProjectFilterDialogState();
+}
+
+class _ProjectFilterDialogState extends State<_ProjectFilterDialog> {
+  late _ProjectFilter _filter = widget.initial;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Filtrar projetos'),
+      content: SizedBox(
+        width: 320,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final f in _ProjectFilter.values)
+              ChoiceChip(
+                label: Text(_Toolbar._filterLabels[f]!),
+                selected: _filter == f,
+                onSelected: (_) => setState(() => _filter = f),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => setState(() => _filter = _ProjectFilter.all),
+          child: const Text('Limpar'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _filter),
+          child: const Text('Aplicar'),
+        ),
+      ],
     );
   }
 }
