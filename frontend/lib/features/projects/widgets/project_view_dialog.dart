@@ -8,6 +8,7 @@ import '../../../core/models/task.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../tasks/providers/task_list_controller.dart';
+import '../../tasks/utils/task_hierarchy.dart';
 import '../../tasks/utils/task_status_colors.dart';
 import '../../tasks/widgets/task_form_dialog.dart';
 import '../../tasks/widgets/task_view_dialog.dart';
@@ -234,45 +235,7 @@ class _ProjectViewDialog extends ConsumerWidget {
                   ),
                 )
               else
-                for (final task in tasks)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () => showTaskViewDialog(context, task: task),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                task.title,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            StatusBadge(
-                              label: statusLabelPtBr(task.status),
-                              colorIndex: statusOrder.isEmpty
-                                  ? 0
-                                  : statusOrder
-                                      .indexOf(task.status)
-                                      .clamp(0, statusOrder.length - 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                _ProjectTasksTree(tasks: tasks, statusOrder: statusOrder),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -314,6 +277,224 @@ class _ProjectViewDialog extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Lista de tasks do projeto com as subtasks de cada uma aninhadas embaixo,
+/// recolhível por task (padrão: tudo expandido). Só 1 nível de subtasks —
+/// mesma regra de `task_hierarchy.dart` (subtarefa não tem subtarefa).
+class _ProjectTasksTree extends StatefulWidget {
+  const _ProjectTasksTree({required this.tasks, required this.statusOrder});
+
+  final List<Task> tasks;
+  final List<String> statusOrder;
+
+  @override
+  State<_ProjectTasksTree> createState() => _ProjectTasksTreeState();
+}
+
+class _ProjectTasksTreeState extends State<_ProjectTasksTree> {
+  final Set<String> _collapsedTaskIds = {};
+
+  int _statusColorIndex(String status) => widget.statusOrder.isEmpty
+      ? 0
+      : widget.statusOrder.indexOf(status).clamp(0, widget.statusOrder.length - 1);
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final roots = topLevelTasks(widget.tasks);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final task in roots) ...[
+          _buildTaskRow(context, colorScheme, task),
+          if (!_collapsedTaskIds.contains(task.id))
+            ..._buildSubtaskRows(context, colorScheme, task),
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _buildSubtaskRows(
+    BuildContext context,
+    ColorScheme colorScheme,
+    Task task,
+  ) {
+    final subtasks = subtasksOf(task, widget.tasks);
+    return [
+      for (var i = 0; i < subtasks.length; i++)
+        _buildSubtaskRow(
+          context,
+          colorScheme,
+          subtasks[i],
+          isLast: i == subtasks.length - 1,
+        ),
+    ];
+  }
+
+  Widget _buildTaskRow(BuildContext context, ColorScheme colorScheme, Task task) {
+    final hasSubtasks = subtasksOf(task, widget.tasks).isNotEmpty;
+    final collapsed = _collapsedTaskIds.contains(task.id);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 40,
+            child: hasSubtasks
+                ? InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () => setState(() {
+                      if (collapsed) {
+                        _collapsedTaskIds.remove(task.id);
+                      } else {
+                        _collapsedTaskIds.add(task.id);
+                      }
+                    }),
+                    child: AnimatedRotation(
+                      turns: collapsed ? 0 : 0.25,
+                      duration: const Duration(milliseconds: 150),
+                      child: const Icon(Icons.chevron_right, size: 18),
+                    ),
+                  )
+                : null,
+          ),
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => showTaskViewDialog(context, task: task),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(task.title, overflow: TextOverflow.ellipsis),
+                    ),
+                    const SizedBox(width: 8),
+                    StatusBadge(
+                      label: statusLabelPtBr(task.status),
+                      colorIndex: _statusColorIndex(task.status),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubtaskRow(
+    BuildContext context,
+    ColorScheme colorScheme,
+    Task subtask, {
+    required bool isLast,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 20, bottom: 6),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _TreeConnector(isLast: isLast),
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => showTaskViewDialog(context, task: subtask),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          subtask.title,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      StatusBadge(
+                        label: statusLabelPtBr(subtask.status),
+                        colorIndex: _statusColorIndex(subtask.status),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Conector visual "parecido com árvore" entre a task-mãe e suas subtasks —
+/// um traço vertical + um cotovelo horizontal desenhados via `CustomPainter`
+/// (evoca `├`/`└` sem usar os caracteres literais). `isLast` corta o traço
+/// vertical na metade (equivalente ao `└`); senão o traço desce inteiro
+/// (equivalente ao `├`, continuando pra próxima subtask).
+class _TreeConnector extends StatelessWidget {
+  const _TreeConnector({required this.isLast});
+
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 20,
+      child: CustomPaint(
+        painter: _TreeConnectorPainter(
+          isLast: isLast,
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+    );
+  }
+}
+
+class _TreeConnectorPainter extends CustomPainter {
+  _TreeConnectorPainter({required this.isLast, required this.color});
+
+  final bool isLast;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final midX = size.width / 2;
+    final midY = size.height / 2;
+    canvas.drawLine(
+      Offset(midX, 0),
+      Offset(midX, isLast ? midY : size.height),
+      paint,
+    );
+    canvas.drawLine(Offset(midX, midY), Offset(size.width, midY), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TreeConnectorPainter oldDelegate) =>
+      oldDelegate.isLast != isLast || oldDelegate.color != color;
 }
 
 extension _FirstOrNull<T> on Iterable<T> {
