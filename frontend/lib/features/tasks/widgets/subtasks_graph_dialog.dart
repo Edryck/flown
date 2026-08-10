@@ -140,8 +140,26 @@ class _SubtasksGraphDialog extends ConsumerWidget {
                           ),
                           convertor: MapConvertor(),
                           options: Options()
-                            ..textGetter = ((vertex) =>
-                                (vertex.data['title'] as String?) ?? '')
+                            // `vertex.data` NÃO é o `{'title': ...}` que
+                            // passamos em `data: {'title': ...}` no vértice
+                            // — o pacote sobrescreve `vertex.data` logo
+                            // depois da conversão (`vertexAsGraphComponse`
+                            // em `data_convertor.dart`, `vertex.data = v`)
+                            // com o mapa CRU do vértice inteiro
+                            // (`{'id', 'tag', 'data'}`), sobrepondo o que
+                            // `MapConvertor.convertVertex` tinha acabado de
+                            // extrair certinho. É por isso que o rótulo
+                            // nunca apareceu: `vertex.data['title']` sempre
+                            // foi `null` (a chave certa é um nível mais
+                            // fundo, `vertex.data['data']['title']`).
+                            ..textGetter = ((vertex) {
+                              final raw = vertex.data;
+                              final inner = raw is Map ? raw['data'] : null;
+                              return (inner is Map
+                                      ? inner['title'] as String?
+                                      : null) ??
+                                  '';
+                            })
                             ..onVertexTapUp = ((vertex, _) =>
                                 openTaskView(vertex.id.toString()))
                             // Fundo segue o tema do app (claro/escuro) em vez
@@ -166,11 +184,11 @@ class _SubtasksGraphDialog extends ConsumerWidget {
                                   TextStyle(
                                     color: theme.colorScheme.onSurface,
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w200,
                                     backgroundColor: theme
                                         .colorScheme
                                         .surfaceContainerLow
-                                        .withValues(alpha: 0.9),
+                                        .withValues(alpha: 0.5),
                                   )),
                         ),
                 ),
