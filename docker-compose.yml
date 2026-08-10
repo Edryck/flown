@@ -1,7 +1,25 @@
 services:
+  # Roda `prisma generate` + `migrate deploy` uma vez e sai — não é um
+  # servidor de banco (SQLite não tem um; é só o arquivo `dev.db`). Existe
+  # separado do `backend` só pra restart de código no `backend` não
+  # precisar esperar generate/migrate toda vez.
+  database:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+      - backend_generated_prisma:/app/src/generated
+    command: sh -c "npx prisma generate && npx prisma migrate deploy"
+
   backend:
     build:
       context: ./backend
+    depends_on:
+      database:
+        condition: service_completed_successfully
     ports:
       - "3333:3333"
     env_file:

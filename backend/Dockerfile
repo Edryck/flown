@@ -18,7 +18,9 @@ COPY . .
 
 EXPOSE 3333
 
-# Regenera o client do Prisma e aplica migrations pendentes toda vez que o
-# container sobe (o schema/migrations vem do bind mount, pode ter mudado
-# sem rebuild de imagem), depois inicia com hot-reload via tsx watch.
-CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && npx tsx watch src/server.ts"]
+# `generate`/`migrate deploy` NÃO rodam mais aqui — ficam só no serviço
+# `database` do compose (roda uma vez e sai; `backend` espera ele terminar
+# via `depends_on: condition: service_completed_successfully`). Restart do
+# `backend` por mudança de código não precisa mais esperar migration/generate
+# toda vez.
+CMD ["npx", "tsx", "watch", "src/server.ts"]
