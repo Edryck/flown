@@ -1,5 +1,5 @@
 import { findAllActiveTasksSnapshot, findTasksForDashboardWindow } from "../repositories/task.repository.js";
-import { findCompletedSessionsSince } from "../repositories/focus-session.repository.js";
+import { findCompletedSessionsSince, sumFocusDurationByUser } from "../repositories/focus-session.repository.js";
 import { COMPLETED_STATUS } from "./task.service.js";
 
 const DEFAULT_WINDOW_DAYS = 90;
@@ -82,6 +82,16 @@ function buildStreak(sessions: { completedAt: Date | null }[]) {
   return streak;
 }
 
+function buildFocusToday(sum: { _sum: { durationSeconds: number | null }; _count: number }) {
+  const todaySeconds = sum._sum.durationSeconds ?? 0;
+  const todaySessionCount = sum._count;
+  return {
+    todaySeconds,
+    todaySessionCount,
+    averageSessionSeconds: todaySessionCount > 0 ? todaySeconds / todaySessionCount : 0,
+  };
+}
+
 function buildPeakHour(tasks: WindowTask[]) {
   const histogram = new Array(24).fill(0);
   for (const task of tasks) {
@@ -124,10 +134,11 @@ function buildDistribution(tasks: SnapshotTask[]) {
 
 export async function getStats(userId: string, windowDays: number = DEFAULT_WINDOW_DAYS) {
   const since = daysAgo(windowDays);
-  const [windowTasks, allTasks, sessions] = await Promise.all([
+  const [windowTasks, allTasks, sessions, todayFocusSum] = await Promise.all([
     findTasksForDashboardWindow(userId, since),
     findAllActiveTasksSnapshot(userId),
     findCompletedSessionsSince(userId, daysAgo(STREAK_LOOKBACK_DAYS)),
+    sumFocusDurationByUser(userId, daysAgo(0)),
   ]);
 
   return {
@@ -140,6 +151,7 @@ export async function getStats(userId: string, windowDays: number = DEFAULT_WIND
     focus: {
       streak: buildStreak(sessions),
       peakHour: buildPeakHour(windowTasks),
+      ...buildFocusToday(todayFocusSum),
     },
     projectHealth: {
       dueStatus: buildDueStatus(allTasks),
