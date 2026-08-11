@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/models/user.dart';
+import '../../notes/providers/note_list_controller.dart';
+import '../../projects/providers/project_list_controller.dart';
+import '../../tasks/providers/task_list_controller.dart';
 import 'auth_repository.dart';
 
 part 'auth_controller.g.dart';
@@ -61,6 +64,13 @@ class AuthController extends _$AuthController {
   Future<void> logout() async {
     await ref.read(authRepositoryProvider).logout();
     state = const AsyncData(null);
+    // As list controllers de Tasks/Projects/Notes sao keepAlive (ver
+    // task_list_controller.dart) - sem invalidar aqui, os dados do usuario
+    // que acabou de sair ficam em memoria e vazam pra tela caso outro
+    // usuario faca login na mesma instancia do app, sem reiniciar.
+    ref.invalidate(taskListControllerProvider);
+    ref.invalidate(projectListControllerProvider);
+    ref.invalidate(noteListControllerProvider);
   }
 
   Future<void> updateProfile({String? name, String? email}) async {
