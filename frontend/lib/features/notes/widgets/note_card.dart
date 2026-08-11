@@ -5,27 +5,27 @@ import '../../../core/models/note.dart';
 
 /// Card de anotação — tradução fiel do card de `Notes.tsx`
 /// (docs/prototype/screens/notes.md): título, conteúdo truncado em 3
-/// linhas, badge do projeto (se houver), tags, data de atualização e ações
-/// de editar/excluir — sempre visíveis (diferente do `ProjectCard`, que só
-/// revela ações no hover; o protótipo de Notes não faz isso).
+/// linhas, badge do projeto (se houver), tags e data de atualização. Sem
+/// ações de editar/excluir próprias — o card inteiro é clicável (`onTap`) e
+/// abre `NoteViewDialog`, que concentra Editar/Excluir (mesmo espírito de
+/// `ProjectCard`).
 ///
 /// O ícone de fixar no canto (visível só quando `isPinned`) é fiel ao
 /// protótipo; o botão de fixar/desafixar no rodapé é um acréscimo — o
-/// protótipo nunca dá nenhuma forma de alterar `pinned`, só lê do mock.
+/// protótipo nunca dá nenhuma forma de alterar `pinned`, só lê do mock. Fica
+/// fora do `onTap` do card (ação rápida, não precisa abrir o diálogo).
 class NoteCard extends StatelessWidget {
   const NoteCard({
     super.key,
     required this.note,
     required this.projectName,
-    required this.onEdit,
-    required this.onDelete,
+    required this.onTap,
     required this.onTogglePinned,
   });
 
   final Note note;
   final String? projectName;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback onTap;
   final VoidCallback onTogglePinned;
 
   @override
@@ -34,13 +34,17 @@ class NoteCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
-      child: Column(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -121,20 +125,12 @@ class NoteCard extends StatelessWidget {
                   icon: Icon(note.isPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 16),
                   visualDensity: VisualDensity.compact,
                 ),
-                IconButton(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 16),
-                  visualDensity: VisualDensity.compact,
-                ),
-                IconButton(
-                  onPressed: onDelete,
-                  icon: Icon(Icons.delete_outline, size: 16, color: colorScheme.error),
-                  visualDensity: VisualDensity.compact,
-                ),
               ],
             ),
           ),
         ],
+          ),
+        ),
       ),
     );
   }

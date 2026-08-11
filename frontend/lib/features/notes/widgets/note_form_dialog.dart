@@ -161,8 +161,11 @@ class _NoteFormDialogState extends ConsumerState<_NoteFormDialog> {
                       const SizedBox(height: 16),
                       TextField(
                         controller: _contentController,
-                        decoration: const InputDecoration(labelText: 'Conteúdo'),
-                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          labelText: 'Conteúdo',
+                          helperText: 'Aceita Markdown — títulos, **negrito**, listas...',
+                        ),
+                        maxLines: 10,
                       ),
                       const SizedBox(height: 16),
                       Text('Tags', style: theme.textTheme.labelLarge),

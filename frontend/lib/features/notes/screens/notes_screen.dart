@@ -8,6 +8,7 @@ import '../../projects/providers/project_list_controller.dart';
 import '../providers/note_list_controller.dart';
 import '../widgets/note_card.dart';
 import '../widgets/note_form_dialog.dart';
+import '../widgets/note_view_dialog.dart';
 
 /// Seleção atual de filtros da tela de Notes — mesmo padrão de
 /// `TaskFilterSelection` (`task_filter_dialog.dart`): conjunto vazio em
@@ -91,29 +92,6 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
     return sorted;
-  }
-
-  Future<void> _confirmDelete(Note note) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Excluir anotação'),
-        content: Text('Excluir "${note.title}"? Ela vai pra lixeira.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      await ref.read(noteListControllerProvider.notifier).delete(note.id);
-    }
   }
 
   @override
@@ -214,8 +192,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                       _NotesGrid(
                         notes: pinned,
                         projectNamesById: projectNamesById,
-                        onEdit: (n) => showNoteFormDialog(context, note: n),
-                        onDelete: _confirmDelete,
+                        onTap: (n) => showNoteViewDialog(context, note: n),
                         onTogglePinned: (n) => ref
                             .read(noteListControllerProvider.notifier)
                             .togglePinned(n),
@@ -234,8 +211,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                     _NotesGrid(
                       notes: unpinned,
                       projectNamesById: projectNamesById,
-                      onEdit: (n) => showNoteFormDialog(context, note: n),
-                      onDelete: _confirmDelete,
+                      onTap: (n) => showNoteViewDialog(context, note: n),
                       onTogglePinned: (n) => ref
                           .read(noteListControllerProvider.notifier)
                           .togglePinned(n),
@@ -255,15 +231,13 @@ class _NotesGrid extends StatelessWidget {
   const _NotesGrid({
     required this.notes,
     required this.projectNamesById,
-    required this.onEdit,
-    required this.onDelete,
+    required this.onTap,
     required this.onTogglePinned,
   });
 
   final List<Note> notes;
   final Map<String, String> projectNamesById;
-  final ValueChanged<Note> onEdit;
-  final ValueChanged<Note> onDelete;
+  final ValueChanged<Note> onTap;
   final ValueChanged<Note> onTogglePinned;
 
   @override
@@ -292,8 +266,7 @@ class _NotesGrid extends StatelessWidget {
               projectName: note.projectId == null
                   ? null
                   : projectNamesById[note.projectId],
-              onEdit: () => onEdit(note),
-              onDelete: () => onDelete(note),
+              onTap: () => onTap(note),
               onTogglePinned: () => onTogglePinned(note),
             );
           },
