@@ -26,6 +26,20 @@ class AppTheme {
   static const _lightDestructive = Color(0xFFD97373);
   static const _lightRing = Color(0xFF7BA3C7);
 
+  // Tema escuro do Padrão Flown - tons explícitos (não só ColorScheme.fromSeed)
+  // pela mesma razão de AppSemanticColors: cores extra definidas só pro claro
+  // e nunca pro escuro foi exatamente a lacuna encontrada no protótipo React
+  // (docs/prototype/01-dark-mode-gaps.md) - aqui claro e escuro nascem juntos.
+  static const _darkPrimary = Color(0xFF8FA6BA);
+  static const _darkSecondary = Color(0xFF7FB0AB);
+  static const _darkBackground = Color(0xFF1A2129);
+  static const _darkForeground = Color(0xFFE8ECF0);
+  static const _darkCard = Color(0xFF232C36);
+  static const _darkBorder = Color(0xFF333F4B);
+  static const _darkMutedForeground = Color(0xFF93A2B0);
+  static const _darkDestructive = Color(0xFFE8908F);
+  static const _darkRing = Color(0xFF9BC0DE);
+
   static const _radius = 10.0;
 
   static ThemeData get light {
@@ -90,6 +104,18 @@ class AppTheme {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: _seedColor,
       brightness: Brightness.dark,
+    ).copyWith(
+      primary: _darkPrimary,
+      onPrimary: _darkBackground,
+      secondary: _darkSecondary,
+      onSecondary: _darkBackground,
+      surface: _darkBackground,
+      onSurface: _darkForeground,
+      onSurfaceVariant: _darkMutedForeground,
+      error: _darkDestructive,
+      onError: _darkBackground,
+      outline: _darkBorder,
+      outlineVariant: _darkBorder,
     );
 
     return ThemeData(
@@ -97,28 +123,34 @@ class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: colorScheme.surface,
       cardTheme: CardThemeData(
-        color: colorScheme.surfaceContainerLow,
+        color: _darkCard,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: colorScheme.outlineVariant),
+          side: const BorderSide(color: _darkBorder),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colorScheme.surfaceContainerHighest,
+        fillColor: _darkCard,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radius),
-          borderSide: BorderSide(color: colorScheme.outlineVariant),
+          borderSide: const BorderSide(color: _darkBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_radius),
+          borderSide: const BorderSide(color: _darkBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radius),
-          borderSide: BorderSide(color: colorScheme.primary, width: 2),
+          borderSide: const BorderSide(color: _darkRing, width: 2),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          backgroundColor: _darkPrimary,
+          foregroundColor: _darkBackground,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_radius)),
         ),
       ),

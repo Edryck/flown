@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../core/models/task_priority.dart';
 import '../../../core/theme/theme_mode_provider.dart';
+import '../../../core/theme/theme_preset_provider.dart';
+import '../../../core/theme/theme_presets.dart';
 import '../../../core/widgets/priority_badge.dart';
 import '../../auth/providers/auth_controller.dart';
 import '../../auth/providers/auth_repository.dart';
@@ -280,6 +282,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final theme = Theme.of(context);
     final prefsAsync = ref.watch(settingsPreferencesControllerProvider);
     final themeMode = ref.watch(appThemeModeProvider);
+    final themePreset =
+        ref.watch(appThemePresetProvider).valueOrNull ?? ThemePreset.flown;
     final isDark = switch (themeMode) {
       ThemeMode.dark => true,
       ThemeMode.light => false,
@@ -359,6 +363,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 .toggle(
                                   dark ? Brightness.light : Brightness.dark,
                                 ),
+                            themePreset: themePreset,
+                            onThemePresetChanged: (preset) => ref
+                                .read(appThemePresetProvider.notifier)
+                                .select(preset),
                             particlesEnabled: _particlesEnabled,
                             onParticlesEnabledChanged: (v) =>
                                 setState(() => _particlesEnabled = v),
@@ -683,6 +691,8 @@ class _AppearanceSection extends StatelessWidget {
   const _AppearanceSection({
     required this.isDark,
     required this.onChanged,
+    required this.themePreset,
+    required this.onThemePresetChanged,
     required this.particlesEnabled,
     required this.onParticlesEnabledChanged,
     required this.particleCount,
@@ -699,6 +709,8 @@ class _AppearanceSection extends StatelessWidget {
 
   final bool isDark;
   final ValueChanged<bool> onChanged;
+  final ThemePreset themePreset;
+  final ValueChanged<ThemePreset> onThemePresetChanged;
   final bool particlesEnabled;
   final ValueChanged<bool> onParticlesEnabledChanged;
   final int particleCount;
@@ -722,8 +734,37 @@ class _AppearanceSection extends StatelessWidget {
         const _SectionHeader(title: 'Aparência'),
         _SettingRow(
           label: 'Tema',
-          description: 'Escolha entre modo claro e escuro',
-          control: _ThemeSegmentedControl(isDark: isDark, onChanged: onChanged),
+          description: themePreset == ThemePreset.flown
+              ? 'Escolha entre modo claro e escuro'
+              : 'Fixo em "${themePreset.label}" — escolha "Padrão Flown" na paleta abaixo pra liberar claro/escuro',
+          control: IgnorePointer(
+            ignoring: themePreset != ThemePreset.flown,
+            child: Opacity(
+              opacity: themePreset == ThemePreset.flown ? 1 : 0.4,
+              child: _ThemeSegmentedControl(isDark: isDark, onChanged: onChanged),
+            ),
+          ),
+        ),
+        const Divider(),
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: Text(
+            'Paleta',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Text(
+          'Cada paleta tem visual próprio e fixo, independente do modo claro/escuro',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _ThemePresetPicker(
+          selected: themePreset,
+          onSelected: onThemePresetChanged,
         ),
         const Divider(),
         Padding(
@@ -1275,6 +1316,94 @@ class _AboutSection extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ThemePresetPicker extends StatelessWidget {
+  const _ThemePresetPicker({required this.selected, required this.onSelected});
+
+  final ThemePreset selected;
+  final ValueChanged<ThemePreset> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        for (final preset in ThemePreset.values)
+          _ThemePresetCard(
+            preset: preset,
+            selected: preset == selected,
+            onTap: () => onSelected(preset),
+          ),
+      ],
+    );
+  }
+}
+
+class _ThemePresetCard extends StatelessWidget {
+  const _ThemePresetCard({
+    required this.preset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ThemePreset preset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final swatch = preset.swatch;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 128,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+            width: selected ? 2 : 1,
+          ),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                for (final color in swatch)
+                  Expanded(
+                    child: Container(height: 20, color: color),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    preset.label,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (selected)
+                  Icon(Icons.check_circle, size: 16, color: colorScheme.primary),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
