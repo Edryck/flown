@@ -11,7 +11,12 @@ part 'project_list_controller.g.dart';
 /// `projectListProvider` (só leitura) — telas que precisam de nome/cor de
 /// projeto (ex: `TasksScreen`, `TaskFormDialog`) e a própria tela de
 /// Projects leem por aqui, nunca chamam `ProjectRepository` direto.
-@riverpod
+///
+/// `keepAlive: true` — mesmo motivo de `TaskListController`: essa lista é
+/// observada por quase toda tela (nome/cor de projeto aparece em Tasks,
+/// Notes, Focus, diálogos de view/form), então sem isso qualquer navegação
+/// que passasse por uma tela que não observa refazia o fetch inteiro.
+@Riverpod(keepAlive: true)
 class ProjectListController extends _$ProjectListController {
   @override
   FutureOr<List<Project>> build() {

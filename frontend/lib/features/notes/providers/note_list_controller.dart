@@ -8,8 +8,10 @@ import 'note_repository.dart';
 part 'note_list_controller.g.dart';
 
 /// Lista de notas não deletadas do usuário + operações de mutação — mesmo
-/// padrão de `TaskListController`/`ProjectListController`.
-@riverpod
+/// padrão de `TaskListController`/`ProjectListController`, `keepAlive: true`
+/// incluso (mesmo motivo: evitar refetch/spinner ao voltar pra Notes depois
+/// de passar por uma tela que não observa esse provider).
+@Riverpod(keepAlive: true)
 class NoteListController extends _$NoteListController {
   @override
   FutureOr<List<Note>> build() {

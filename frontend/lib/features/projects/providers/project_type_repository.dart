@@ -29,7 +29,13 @@ ProjectTypeRepository projectTypeRepository(ProjectTypeRepositoryRef ref) =>
 /// Lista de tipos de projeto — usada pelo TaskForm pra resolver, a partir do
 /// projeto selecionado (`Project.typeId`), a lista de status válidos
 /// (`ProjectType.availableStatus`) pro Select de status.
-@riverpod
+///
+/// `keepAlive: true` — dado essencialmente estático (só muda por um setup
+/// administrativo, nunca pela sessão normal do usuário) e observado em
+/// telas espalhadas (Tasks, Focus, TaskForm) — sem isso, cada uma refazia
+/// esse fetch sempre que era a primeira a montar depois de um tempo sem
+/// nenhuma tela observando.
+@Riverpod(keepAlive: true)
 Future<List<ProjectType>> projectTypeList(ProjectTypeListRef ref) {
   return ref.watch(projectTypeRepositoryProvider).list();
 }

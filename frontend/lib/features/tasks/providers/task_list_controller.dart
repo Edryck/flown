@@ -12,7 +12,16 @@ part 'task_list_controller.g.dart';
 /// `TaskRepository` direto — mantém a lista em memória sempre consistente
 /// com o que foi persistido no backend, sem cada tela precisar refazer
 /// fetch depois de uma mutação.
-@riverpod
+///
+/// `keepAlive: true` de propósito — sem isso (`@riverpod` puro é
+/// `autoDispose`), navegar pra uma tela que não observa esse provider (ex:
+/// Notas, Configurações) descartava a lista, e voltar pra uma tela que
+/// observa (Tasks, Projects — que usa a lista de tasks pras estatísticas de
+/// cada projeto) refazia o fetch inteiro do zero, com spinner de novo. Como
+/// toda mutação já atualiza `state` localmente (`create`/`updateTask`/etc
+/// abaixo), manter vivo não arrisca dado desatualizado — é sempre o mesmo
+/// usuário, sem outro cliente escrevendo por baixo.
+@Riverpod(keepAlive: true)
 class TaskListController extends _$TaskListController {
   @override
   FutureOr<List<Task>> build() {
