@@ -113,14 +113,30 @@ class PeakHour {
 }
 
 class FocusStats {
-  const FocusStats({required this.streak, required this.peakHour});
+  const FocusStats({
+    required this.streak,
+    required this.peakHour,
+    required this.todaySeconds,
+    required this.todaySessionCount,
+    required this.averageSessionSeconds,
+  });
 
   final int streak;
   final PeakHour peakHour;
 
+  /// Soma de `FocusSession.durationSeconds` de hoje (desde meia-noite).
+  final int todaySeconds;
+  final int todaySessionCount;
+
+  /// `todaySeconds / todaySessionCount`, ou 0 se não houve sessão hoje.
+  final double averageSessionSeconds;
+
   factory FocusStats.fromJson(Map<String, dynamic> json) => FocusStats(
     streak: json['streak'] as int,
     peakHour: PeakHour.fromJson(json['peakHour'] as Map<String, dynamic>),
+    todaySeconds: json['todaySeconds'] as int,
+    todaySessionCount: json['todaySessionCount'] as int,
+    averageSessionSeconds: (json['averageSessionSeconds'] as num).toDouble(),
   );
 }
 

@@ -14,6 +14,7 @@ import '../providers/settings_preferences.dart';
 enum _SettingsSection {
   account,
   appearance,
+  focusMode,
   tasks,
   notes,
   notifications,
@@ -62,6 +63,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   double _particleSpeed = 0.6;
   double _particleLineDistance = 120;
   bool _particlesInteractive = true;
+  int _pomodoroFocusMinutes = 25;
+  int _pomodoroShortBreakMinutes = 5;
+  int _pomodoroLongBreakMinutes = 15;
+  int _pomodoroCyclesBeforeLongBreak = 4;
   bool _savingPrefs = false;
 
   bool _accountHydrated = false;
@@ -93,6 +98,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _particleSpeed = prefs.particleSpeed;
     _particleLineDistance = prefs.particleLineDistance;
     _particlesInteractive = prefs.particlesInteractive;
+    _pomodoroFocusMinutes = prefs.pomodoroFocusMinutes;
+    _pomodoroShortBreakMinutes = prefs.pomodoroShortBreakMinutes;
+    _pomodoroLongBreakMinutes = prefs.pomodoroLongBreakMinutes;
+    _pomodoroCyclesBeforeLongBreak = prefs.pomodoroCyclesBeforeLongBreak;
     _prefsHydrated = true;
   }
 
@@ -119,6 +128,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               particleSpeed: _particleSpeed,
               particleLineDistance: _particleLineDistance,
               particlesInteractive: _particlesInteractive,
+              pomodoroFocusMinutes: _pomodoroFocusMinutes,
+              pomodoroShortBreakMinutes: _pomodoroShortBreakMinutes,
+              pomodoroLongBreakMinutes: _pomodoroLongBreakMinutes,
+              pomodoroCyclesBeforeLongBreak: _pomodoroCyclesBeforeLongBreak,
             ),
           );
       if (mounted) {
@@ -364,6 +377,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             saving: _savingPrefs,
                             onSave: _savePreferences,
                           ),
+                          _SettingsSection.focusMode => _FocusModeSection(
+                            pomodoroFocusMinutes: _pomodoroFocusMinutes,
+                            onPomodoroFocusMinutesChanged: (v) =>
+                                setState(() => _pomodoroFocusMinutes = v),
+                            pomodoroShortBreakMinutes:
+                                _pomodoroShortBreakMinutes,
+                            onPomodoroShortBreakMinutesChanged: (v) => setState(
+                              () => _pomodoroShortBreakMinutes = v,
+                            ),
+                            pomodoroLongBreakMinutes:
+                                _pomodoroLongBreakMinutes,
+                            onPomodoroLongBreakMinutesChanged: (v) => setState(
+                              () => _pomodoroLongBreakMinutes = v,
+                            ),
+                            pomodoroCyclesBeforeLongBreak:
+                                _pomodoroCyclesBeforeLongBreak,
+                            onPomodoroCyclesBeforeLongBreakChanged: (v) =>
+                                setState(
+                                  () => _pomodoroCyclesBeforeLongBreak = v,
+                                ),
+                            saving: _savingPrefs,
+                            onSave: _savePreferences,
+                          ),
                           _SettingsSection.tasks => _TaskPrefsSection(
                             defaultPriority: _defaultPriority,
                             onDefaultPriorityChanged: (v) =>
@@ -468,6 +504,11 @@ class _Sidebar extends StatelessWidget {
       section: _SettingsSection.appearance,
       icon: Icons.palette_outlined,
       label: 'Aparência',
+    ),
+    (
+      section: _SettingsSection.focusMode,
+      icon: Icons.timer_outlined,
+      label: 'Modo Foco',
     ),
     (
       section: _SettingsSection.tasks,
@@ -822,6 +863,102 @@ class _SliderSettingRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Duração dos ciclos do modo Pomodoro do Modo Foco (`focus_screen.dart`).
+class _FocusModeSection extends StatelessWidget {
+  const _FocusModeSection({
+    required this.pomodoroFocusMinutes,
+    required this.onPomodoroFocusMinutesChanged,
+    required this.pomodoroShortBreakMinutes,
+    required this.onPomodoroShortBreakMinutesChanged,
+    required this.pomodoroLongBreakMinutes,
+    required this.onPomodoroLongBreakMinutesChanged,
+    required this.pomodoroCyclesBeforeLongBreak,
+    required this.onPomodoroCyclesBeforeLongBreakChanged,
+    required this.saving,
+    required this.onSave,
+  });
+
+  final int pomodoroFocusMinutes;
+  final ValueChanged<int> onPomodoroFocusMinutesChanged;
+  final int pomodoroShortBreakMinutes;
+  final ValueChanged<int> onPomodoroShortBreakMinutesChanged;
+  final int pomodoroLongBreakMinutes;
+  final ValueChanged<int> onPomodoroLongBreakMinutesChanged;
+  final int pomodoroCyclesBeforeLongBreak;
+  final ValueChanged<int> onPomodoroCyclesBeforeLongBreakChanged;
+  final bool saving;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _SectionHeader(title: 'Modo Foco'),
+        Text(
+          'Duração dos ciclos do modo Pomodoro',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _SliderSettingRow(
+          label: 'Foco',
+          valueLabel: '${pomodoroFocusMinutes}min',
+          value: pomodoroFocusMinutes.toDouble(),
+          min: 5,
+          max: 60,
+          divisions: 55,
+          onChanged: (v) => onPomodoroFocusMinutesChanged(v.round()),
+        ),
+        _SliderSettingRow(
+          label: 'Pausa curta',
+          valueLabel: '${pomodoroShortBreakMinutes}min',
+          value: pomodoroShortBreakMinutes.toDouble(),
+          min: 1,
+          max: 30,
+          divisions: 29,
+          onChanged: (v) => onPomodoroShortBreakMinutesChanged(v.round()),
+        ),
+        _SliderSettingRow(
+          label: 'Pausa longa',
+          valueLabel: '${pomodoroLongBreakMinutes}min',
+          value: pomodoroLongBreakMinutes.toDouble(),
+          min: 5,
+          max: 60,
+          divisions: 55,
+          onChanged: (v) => onPomodoroLongBreakMinutesChanged(v.round()),
+        ),
+        _SliderSettingRow(
+          label: 'Ciclos até a pausa longa',
+          valueLabel: '$pomodoroCyclesBeforeLongBreak',
+          value: pomodoroCyclesBeforeLongBreak.toDouble(),
+          min: 2,
+          max: 8,
+          divisions: 6,
+          onChanged: (v) =>
+              onPomodoroCyclesBeforeLongBreakChanged(v.round()),
+        ),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: saving ? null : onSave,
+            child: saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Salvar alterações'),
+          ),
+        ),
+      ],
     );
   }
 }

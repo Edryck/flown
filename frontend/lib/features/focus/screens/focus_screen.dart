@@ -15,26 +15,37 @@ import '../../../core/widgets/badge_size.dart';
 import '../../../core/widgets/priority_badge.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../../settings/providers/settings_preferences.dart';
+import '../../statistics/providers/dashboard_stats_repository.dart';
 import '../../tasks/providers/task_list_controller.dart';
 import '../../tasks/providers/task_repository.dart';
 import '../../tasks/utils/task_hierarchy.dart';
 import '../providers/focus_session_repository.dart';
+import '../widgets/task_picker_dialog.dart';
 
 /// Tela de foco imersiva em tela cheia — tradução fiel de FocusMode.tsx
-/// (docs/prototype/screens/focus-mode.md): cronômetro crescente (não é
-/// Pomodoro, mesmo a dica de rodapé mencionar 25/5 minutos — isso é só
-/// texto estático no protótipo também), task em foco escolhida
-/// automaticamente, card com progresso/checklist, fundo escuro fixo (não
-/// muda com o tema do app, por design).
+/// (docs/prototype/screens/focus-mode.md) como ponto de partida, mas já
+/// evoluída bem além dele: card com progresso/checklist, fundo escuro fixo
+/// (não muda com o tema do app, por design).
 ///
-/// Diferenças deliberadas do protótipo (decididas antes de traduzir):
+/// Diferenças deliberadas do protótipo (decididas antes/depois de traduzir):
 ///   - o cronômetro persiste de verdade: ao parar/sair/pular/concluir com
-///     tempo acumulado, grava uma `FocusSession` real (`POST /sessions`,
-///     `type: stopwatch`) — o protótipo zera tudo ao recarregar a página;
+///     tempo acumulado, grava uma `FocusSession` real (`POST /sessions`)
+///     — o protótipo zera tudo ao recarregar a página;
 ///   - Checklist, "Concluir Tarefa" e "Próxima Tarefa" funcionam de
 ///     verdade (eram só visuais/sem handler no protótipo);
-///   - a task em foco continua escolhida automaticamente (sem seletor
-///     manual), igual ao protótipo.
+///   - dois modos de cronômetro: stopwatch (crescente, o único que o
+///     protótipo tinha) e Pomodoro de verdade (`_FocusMode`/`_FocusPhase`)
+///     — ciclos de foco/pausa com contagem regressiva, duração configurável
+///     em Configurações → Modo Foco (`SettingsPreferences.pomodoro*`). Só a
+///     fase de foco vira `FocusSession` (`type: pomodoro`), gravada sozinha
+///     ao zerar a contagem — pausa não conta como "tempo focado";
+///   - a task em foco é escolhida automaticamente por padrão (maior
+///     prioridade + "Em Andamento"), mas dá pra escolher manualmente
+///     (`_manuallySelectedTaskId`, `showTaskPickerDialog`) — diferente do
+///     protótipo, que não tinha seletor nenhum;
+///   - painel com tempo focado hoje/sequência de dias/média por sessão
+///     (`_FocusMetricsRow`), lido de `GET /dashboard/stats`
+///     (`dashboardStatsProvider`) — sem referência no protótipo.
 ///
 /// A regra de seleção usa o literal `'In Progress'` pra achar a task "em
 /// andamento" — os dois `ProjectType` seedados (`software`/`general`) usam
@@ -59,6 +70,10 @@ import '../providers/focus_session_repository.dart';
 /// bloqueia o hover na tela inteira, já que o `Scrollable` interno usa
 /// `HitTestBehavior.opaque` pra permitir arrastar/rolar mesmo a partir de
 /// área "vazia".
+enum _FocusMode { stopwatch, pomodoro }
+
+enum _FocusPhase { focus, shortBreak, longBreak }
+
 class FocusScreen extends ConsumerStatefulWidget {
   const FocusScreen({super.key});
 
@@ -77,13 +92,48 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
   final Set<String> _skippedTaskIds = {};
   bool _busy = false;
 
+  _FocusMode _mode = _FocusMode.stopwatch;
+  _FocusPhase _phase = _FocusPhase.focus;
+  int _remainingSeconds = 0;
+  int _completedFocusCyclesInSet = 0;
+  String? _manuallySelectedTaskId;
+
+  /// Id da task em foco no frame atual — atribuído (sem `setState`, mesmo
+  /// padrão de bookkeeping usado em `_prefsHydrated`/`settings_screen.dart`)
+  /// dentro de `build()` a cada rebuild, porque o callback do
+  /// `Timer.periodic` (`_tick`/`_advancePomodoroPhase`) roda fora de
+  /// `build()` e precisa saber pra qual task gravar a `FocusSession` do
+  /// Pomodoro sem depender de closures capturadas na árvore de widgets.
+  String? _currentFocusTaskId;
+
   @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
   }
 
+  int _phaseDurationSeconds(_FocusPhase phase) {
+    final prefs = ref.read(settingsPreferencesControllerProvider).valueOrNull;
+    return switch (phase) {
+      _FocusPhase.focus => (prefs?.pomodoroFocusMinutes ?? 25) * 60,
+      _FocusPhase.shortBreak => (prefs?.pomodoroShortBreakMinutes ?? 5) * 60,
+      _FocusPhase.longBreak => (prefs?.pomodoroLongBreakMinutes ?? 15) * 60,
+    };
+  }
+
+  void _initPomodoroPhase(_FocusPhase phase) {
+    _phase = phase;
+    _remainingSeconds = _phaseDurationSeconds(phase);
+  }
+
   Task? _pickFocusTask(List<Task> tasks) {
+    final manualId = _manuallySelectedTaskId;
+    if (manualId != null) {
+      final manual = tasks.where(
+        (t) => t.id == manualId && t.status != _doneStatus,
+      );
+      if (manual.isNotEmpty) return manual.first;
+    }
     var candidates = tasks
         .where(
           (t) =>
@@ -108,24 +158,115 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
+  /// MM:SS — usado só pela contagem regressiva do Pomodoro, que nunca passa
+  /// de 60min (limite do slider em Configurações → Modo Foco), então o
+  /// prefixo de horas do `_formatTime` (pensado pro stopwatch, que pode
+  /// passar de 1h) só adicionaria um "00:" sempre fixo aqui.
+  String _formatCountdown(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
   void _toggleRunning() {
     setState(() {
       _isRunning = !_isRunning;
       if (_isRunning) {
         _sessionStartedAt ??= DateTime.now();
-        _timer = Timer.periodic(
-          const Duration(seconds: 1),
-          (_) => setState(() => _elapsedSeconds++),
-        );
+        _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
       } else {
         _timer?.cancel();
       }
     });
   }
 
+  void _tick() {
+    if (_mode == _FocusMode.stopwatch) {
+      setState(() => _elapsedSeconds++);
+      return;
+    }
+    if (_remainingSeconds > 1) {
+      setState(() => _remainingSeconds--);
+    } else {
+      setState(() => _remainingSeconds = 0);
+      _advancePomodoroPhase();
+    }
+  }
+
+  /// Roda quando a contagem regressiva do Pomodoro zera. Só a fase de foco
+  /// vira `FocusSession` (pausa não é "tempo focado") — a sessão é gravada
+  /// automaticamente aqui, sem esperar o usuário sair/pular/concluir (esses
+  /// continuam existindo, mas em modo Pomodoro `_flushSession` não grava
+  /// mais nada parcial, ver comentário lá). O ciclo continua sozinho: foco
+  /// terminado entra direto na pausa (curta, ou longa a cada N ciclos
+  /// configurados), pausa terminada volta direto pro foco.
+  Future<void> _advancePomodoroPhase() async {
+    if (_phase == _FocusPhase.focus) {
+      final startedAt = _sessionStartedAt;
+      final duration = _phaseDurationSeconds(_FocusPhase.focus);
+      _sessionStartedAt = null;
+      if (startedAt != null) {
+        try {
+          await ref
+              .read(focusSessionRepositoryProvider)
+              .create(
+                type: FocusSessionKind.pomodoro,
+                durationSeconds: duration,
+                startedAt: startedAt,
+                completedAt: DateTime.now(),
+                taskId: _currentFocusTaskId,
+              );
+          ref.invalidate(dashboardStatsProvider);
+        } catch (_) {
+          // Sessão de foco é um registro auxiliar — falha ao salvar não deve
+          // travar o ciclo do Pomodoro.
+        }
+      }
+      _completedFocusCyclesInSet++;
+      final cyclesBeforeLongBreak =
+          ref.read(settingsPreferencesControllerProvider).valueOrNull
+              ?.pomodoroCyclesBeforeLongBreak ??
+          4;
+      final nextPhase = _completedFocusCyclesInSet % cyclesBeforeLongBreak == 0
+          ? _FocusPhase.longBreak
+          : _FocusPhase.shortBreak;
+      if (mounted) setState(() => _initPomodoroPhase(nextPhase));
+    } else {
+      _sessionStartedAt = DateTime.now();
+      if (mounted) setState(() => _initPomodoroPhase(_FocusPhase.focus));
+    }
+  }
+
+  Future<void> _switchMode(_FocusMode mode) async {
+    if (mode == _mode) return;
+    await _flushSession(_currentFocusTaskId);
+    setState(() {
+      _mode = mode;
+      if (mode == _FocusMode.pomodoro) {
+        _completedFocusCyclesInSet = 0;
+        _initPomodoroPhase(_FocusPhase.focus);
+      }
+    });
+  }
+
   /// Grava a `FocusSession` acumulada (se houver) e zera o cronômetro local.
+  /// Em modo Pomodoro não grava nada aqui — sessões de foco já foram
+  /// persistidas automaticamente ao completar cada fase
+  /// (`_advancePomodoroPhase`); uma fase incompleta (redefinir/sair/pular no
+  /// meio) não vira registro, só zera o estado local de volta pro início de
+  /// um ciclo novo.
   Future<void> _flushSession(String? taskId) async {
     _timer?.cancel();
+    if (_mode == _FocusMode.pomodoro) {
+      setState(() {
+        _isRunning = false;
+        _sessionStartedAt = null;
+        _completedFocusCyclesInSet = 0;
+        _initPomodoroPhase(_FocusPhase.focus);
+      });
+      return;
+    }
+
     final startedAt = _sessionStartedAt;
     final elapsed = _elapsedSeconds;
     setState(() {
@@ -145,6 +286,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
             completedAt: DateTime.now(),
             taskId: taskId,
           );
+      ref.invalidate(dashboardStatsProvider);
     } catch (_) {
       // Sessão de foco é um registro auxiliar — falha ao salvar não deve
       // travar navegação, troca de task nem conclusão.
@@ -155,7 +297,16 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
 
   Future<void> _skip(Task task) async {
     await _flushSession(task.id);
-    setState(() => _skippedTaskIds.add(task.id));
+    setState(() {
+      _skippedTaskIds.add(task.id);
+      // Evita ficar preso pulando pra mesma task fixada manualmente — volta
+      // pra regra automática.
+      if (_manuallySelectedTaskId == task.id) _manuallySelectedTaskId = null;
+    });
+  }
+
+  void _pickTaskManually(String? taskId) {
+    setState(() => _manuallySelectedTaskId = taskId);
   }
 
   Future<void> _complete(Task task) async {
@@ -244,7 +395,9 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
           data: (tasks) {
             // Subtarefa nunca é a task em foco em si — só aparece na lista
             // dentro do card da tarefa-mãe.
-            final focusTask = _pickFocusTask(topLevelTasks(tasks));
+            final selectableTasks = topLevelTasks(tasks);
+            final focusTask = _pickFocusTask(selectableTasks);
+            _currentFocusTaskId = focusTask?.id;
 
             // Fundo de partículas antes do `if`/`else` de propósito — igual
             // com nenhuma task "In Progress" (estado vazio), a tela continua
@@ -272,11 +425,39 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
                   Positioned.fill(
                     child: _EmptyFocusState(
                       onGoToTasks: () => context.go('/tasks'),
+                      onPickTask: selectableTasks.isEmpty
+                          ? null
+                          : () async {
+                              final result = await showTaskPickerDialog(
+                                context,
+                                tasks: selectableTasks,
+                              );
+                              if (result != null) {
+                                _pickTaskManually(result.task?.id);
+                              }
+                            },
                     ),
                   ),
                 ],
               );
             }
+
+            final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
+            final focusStats = dashboardStatsAsync.valueOrNull?.focus;
+
+            final (String phaseLabel, Color phaseColor) = _mode == _FocusMode.stopwatch
+                ? ('Modo Foco Ativo', const Color(0xFF4A9E99))
+                : switch (_phase) {
+                    _FocusPhase.focus => ('Foco', const Color(0xFF4A9E99)),
+                    _FocusPhase.shortBreak => (
+                      'Pausa Curta',
+                      const Color(0xFFB7791F),
+                    ),
+                    _FocusPhase.longBreak => (
+                      'Pausa Longa',
+                      const Color(0xFFB7791F),
+                    ),
+                  };
 
             return Stack(
               children: [
@@ -305,33 +486,31 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
                         ),
                         child: Column(
                           children: [
+                            _ModeToggle(
+                              mode: _mode,
+                              onChanged: _switchMode,
+                            ),
+                            const SizedBox(height: 20),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF4A9E99,
-                                ).withValues(alpha: 0.2),
+                                color: phaseColor.withValues(alpha: 0.2),
                                 border: Border.all(
-                                  color: const Color(
-                                    0xFF4A9E99,
-                                  ).withValues(alpha: 0.3),
+                                  color: phaseColor.withValues(alpha: 0.3),
                                 ),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const _PulsingDot(
-                                    color: Color(0xFF4A9E99),
-                                    size: 8,
-                                  ),
+                                  _PulsingDot(color: phaseColor, size: 8),
                                   const SizedBox(width: 8),
-                                  const Text(
-                                    'Modo Foco Ativo',
-                                    style: TextStyle(
+                                  Text(
+                                    phaseLabel,
+                                    style: const TextStyle(
                                       color: Color(0xFFD4EEEC),
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
@@ -340,9 +519,15 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
                                 ],
                               ),
                             ),
+                            if (focusStats != null) ...[
+                              const SizedBox(height: 20),
+                              _FocusMetricsRow(stats: focusStats),
+                            ],
                             const SizedBox(height: 48),
                             Text(
-                              _formatTime(_elapsedSeconds),
+                              _mode == _FocusMode.stopwatch
+                                  ? _formatTime(_elapsedSeconds)
+                                  : _formatCountdown(_remainingSeconds),
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 64,
@@ -406,6 +591,30 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
                               ],
                             ),
                             const SizedBox(height: 48),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                onPressed: () async {
+                                  final result = await showTaskPickerDialog(
+                                    context,
+                                    tasks: selectableTasks,
+                                  );
+                                  if (result != null) {
+                                    _pickTaskManually(result.task?.id);
+                                  }
+                                },
+                                icon: const Icon(
+                                  Icons.swap_horiz,
+                                  size: 16,
+                                  color: Colors.white70,
+                                ),
+                                label: const Text(
+                                  'Trocar tarefa',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                             _FocusTaskCard(
                               task: focusTask,
                               projectName: focusTask.projectId == null
@@ -469,10 +678,12 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
                                 ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Text(
-                                'Faça uma pausa de 5 minutos a cada 25 minutos para manter o foco e a produtividade',
+                              child: Text(
+                                _mode == _FocusMode.pomodoro
+                                    ? 'Faça uma pausa de ${prefs?.pomodoroShortBreakMinutes ?? 5} minutos a cada ${prefs?.pomodoroFocusMinutes ?? 25} minutos para manter o foco e a produtividade'
+                                    : 'Faça uma pausa de 5 minutos a cada 25 minutos para manter o foco e a produtividade',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: Colors.white60,
                                   fontSize: 13,
                                 ),
@@ -761,9 +972,13 @@ class _MetaItem extends StatelessWidget {
 }
 
 class _EmptyFocusState extends StatelessWidget {
-  const _EmptyFocusState({required this.onGoToTasks});
+  const _EmptyFocusState({required this.onGoToTasks, this.onPickTask});
 
   final VoidCallback onGoToTasks;
+
+  /// `null` quando não há nenhuma task de nível superior pra escolher
+  /// (esconde o botão em vez de abrir um diálogo vazio).
+  final VoidCallback? onPickTask;
 
   @override
   Widget build(BuildContext context) {
@@ -799,9 +1014,25 @@ class _EmptyFocusState extends StatelessWidget {
             style: TextStyle(color: Colors.white60),
           ),
           const SizedBox(height: 24),
-          FilledButton(
-            onPressed: onGoToTasks,
-            child: const Text('Ir para Tarefas'),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onPickTask != null) ...[
+                OutlinedButton(
+                  onPressed: onPickTask,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white38),
+                  ),
+                  child: const Text('Escolher uma tarefa'),
+                ),
+                const SizedBox(width: 12),
+              ],
+              FilledButton(
+                onPressed: onGoToTasks,
+                child: const Text('Ir para Tarefas'),
+              ),
+            ],
           ),
         ],
       ),
@@ -841,6 +1072,145 @@ class _PulsingDotState extends State<_PulsingDot>
         height: widget.size,
         decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
       ),
+    );
+  }
+}
+
+/// Alterna entre stopwatch (cronômetro crescente) e Pomodoro (ciclos de
+/// foco/pausa com contagem regressiva) — trocar de modo já passa por
+/// `_flushSession` (ver `_switchMode`), então não mistura tempo acumulado
+/// dos dois.
+class _ModeToggle extends StatelessWidget {
+  const _ModeToggle({required this.mode, required this.onChanged});
+
+  final _FocusMode mode;
+  final ValueChanged<_FocusMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ModeToggleButton(
+            label: 'Cronômetro',
+            selected: mode == _FocusMode.stopwatch,
+            onTap: () => onChanged(_FocusMode.stopwatch),
+          ),
+          _ModeToggleButton(
+            label: 'Pomodoro',
+            selected: mode == _FocusMode.pomodoro,
+            onTap: () => onChanged(_FocusMode.pomodoro),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModeToggleButton extends StatelessWidget {
+  const _ModeToggleButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? const Color(0xFF4A9E99) : Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.white60,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tempo focado hoje, sequência de dias e média por sessão — lidos de
+/// `GET /dashboard/stats` (`dashboardStatsProvider`, já usado pela tela de
+/// Estatísticas; `focus.streak` já existia lá, `todaySeconds`/
+/// `averageSessionSeconds` foram adicionados junto com esta feature). Só
+/// leitura — invalidado depois de cada sessão gravada
+/// (`_flushSession`/`_advancePomodoroPhase`) pra atualizar sem sair da tela.
+class _FocusMetricsRow extends StatelessWidget {
+  const _FocusMetricsRow({required this.stats});
+
+  final FocusStats stats;
+
+  static String _formatMinutes(num seconds) {
+    final totalMinutes = (seconds / 60).round();
+    if (totalMinutes < 60) return '${totalMinutes}min';
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+    return m == 0 ? '${h}h' : '${h}h ${m}min';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      ('Tempo focado hoje', _formatMinutes(stats.todaySeconds)),
+      (
+        'Sequência',
+        stats.streak == 1 ? '1 dia' : '${stats.streak} dias',
+      ),
+      ('Média por sessão', _formatMinutes(stats.averageSessionSeconds)),
+    ];
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  items[i].$2,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  items[i].$1,
+                  style: const TextStyle(color: Colors.white60, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

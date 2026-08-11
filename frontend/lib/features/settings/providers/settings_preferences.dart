@@ -23,6 +23,10 @@ const _kParticleCount = 'settings.particleCount';
 const _kParticleSpeed = 'settings.particleSpeed';
 const _kParticleLineDistance = 'settings.particleLineDistance';
 const _kParticlesInteractive = 'settings.particlesInteractive';
+const _kPomodoroFocusMinutes = 'settings.pomodoroFocusMinutes';
+const _kPomodoroShortBreakMinutes = 'settings.pomodoroShortBreakMinutes';
+const _kPomodoroLongBreakMinutes = 'settings.pomodoroLongBreakMinutes';
+const _kPomodoroCyclesBeforeLongBreak = 'settings.pomodoroCyclesBeforeLongBreak';
 
 /// Preferências de Settings.tsx (docs/prototype/screens/settings.md) que
 /// não têm campo nenhum no backend real (`PATCH /users/me` só aceita
@@ -52,6 +56,10 @@ class SettingsPreferences {
     this.particleSpeed = 0.6,
     this.particleLineDistance = 120,
     this.particlesInteractive = true,
+    this.pomodoroFocusMinutes = 25,
+    this.pomodoroShortBreakMinutes = 5,
+    this.pomodoroLongBreakMinutes = 15,
+    this.pomodoroCyclesBeforeLongBreak = 4,
   });
 
   final TaskPriority defaultPriority;
@@ -85,6 +93,14 @@ class SettingsPreferences {
   /// as partículas só se movem sozinhas, sem reagir ao mouse/toque.
   final bool particlesInteractive;
 
+  /// Duração dos ciclos do Modo Foco em modo Pomodoro (`focus_screen.dart`)
+  /// — defaults clássicos da técnica (25min foco / 5min pausa curta / 15min
+  /// pausa longa a cada 4 ciclos).
+  final int pomodoroFocusMinutes;
+  final int pomodoroShortBreakMinutes;
+  final int pomodoroLongBreakMinutes;
+  final int pomodoroCyclesBeforeLongBreak;
+
   SettingsPreferences copyWith({
     TaskPriority? defaultPriority,
     String? defaultStatus,
@@ -102,6 +118,10 @@ class SettingsPreferences {
     double? particleSpeed,
     double? particleLineDistance,
     bool? particlesInteractive,
+    int? pomodoroFocusMinutes,
+    int? pomodoroShortBreakMinutes,
+    int? pomodoroLongBreakMinutes,
+    int? pomodoroCyclesBeforeLongBreak,
   }) {
     return SettingsPreferences(
       defaultPriority: defaultPriority ?? this.defaultPriority,
@@ -120,6 +140,13 @@ class SettingsPreferences {
       particleSpeed: particleSpeed ?? this.particleSpeed,
       particleLineDistance: particleLineDistance ?? this.particleLineDistance,
       particlesInteractive: particlesInteractive ?? this.particlesInteractive,
+      pomodoroFocusMinutes: pomodoroFocusMinutes ?? this.pomodoroFocusMinutes,
+      pomodoroShortBreakMinutes:
+          pomodoroShortBreakMinutes ?? this.pomodoroShortBreakMinutes,
+      pomodoroLongBreakMinutes:
+          pomodoroLongBreakMinutes ?? this.pomodoroLongBreakMinutes,
+      pomodoroCyclesBeforeLongBreak:
+          pomodoroCyclesBeforeLongBreak ?? this.pomodoroCyclesBeforeLongBreak,
     );
   }
 }
@@ -150,6 +177,13 @@ class SettingsPreferencesController extends _$SettingsPreferencesController {
       particleSpeed: prefs.getDouble(_kParticleSpeed) ?? 0.6,
       particleLineDistance: prefs.getDouble(_kParticleLineDistance) ?? 120,
       particlesInteractive: prefs.getBool(_kParticlesInteractive) ?? true,
+      pomodoroFocusMinutes: prefs.getInt(_kPomodoroFocusMinutes) ?? 25,
+      pomodoroShortBreakMinutes:
+          prefs.getInt(_kPomodoroShortBreakMinutes) ?? 5,
+      pomodoroLongBreakMinutes:
+          prefs.getInt(_kPomodoroLongBreakMinutes) ?? 15,
+      pomodoroCyclesBeforeLongBreak:
+          prefs.getInt(_kPomodoroCyclesBeforeLongBreak) ?? 4,
     );
   }
 
@@ -171,6 +205,19 @@ class SettingsPreferencesController extends _$SettingsPreferencesController {
     await sp.setBool(_kNotifyOverdue, prefs.notifyOverdue);
     await sp.setBool(_kNotifyStatusChange, prefs.notifyStatusChange);
     await sp.setBool(_kNotifyReminder, prefs.notifyReminder);
+    await sp.setInt(_kPomodoroFocusMinutes, prefs.pomodoroFocusMinutes);
+    await sp.setInt(
+      _kPomodoroShortBreakMinutes,
+      prefs.pomodoroShortBreakMinutes,
+    );
+    await sp.setInt(
+      _kPomodoroLongBreakMinutes,
+      prefs.pomodoroLongBreakMinutes,
+    );
+    await sp.setInt(
+      _kPomodoroCyclesBeforeLongBreak,
+      prefs.pomodoroCyclesBeforeLongBreak,
+    );
     state = AsyncData(prefs);
   }
 }
