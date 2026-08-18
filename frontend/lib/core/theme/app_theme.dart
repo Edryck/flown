@@ -1,6 +1,20 @@
 import 'package:flutter/material.dart';
 
+import 'app_typography.dart';
 import 'semantic_colors.dart';
+
+/// Raios de borda por papel, não um valor único pro app inteiro - a
+/// uniformidade ("tudo arredondado igual") é um dos maiores sintomas de
+/// visual Material genérico. A maioria fica fechada (`sharp`/`card`) e só o
+/// painel de destaque do Dashboard (`HeroMetricsPanel`) usa `hero` - a
+/// variação entre os dois cria a tensão visual que um raio uniforme não tem.
+class AppRadii {
+  AppRadii._();
+
+  static const sharp = 6.0;
+  static const card = 12.0;
+  static const hero = 16.0;
+}
 
 /// `ThemeData` light/dark do app.
 ///
@@ -40,8 +54,6 @@ class AppTheme {
   static const _darkDestructive = Color(0xFFE8908F);
   static const _darkRing = Color(0xFF9BC0DE);
 
-  static const _radius = 10.0;
-
   static ThemeData get light {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: _seedColor,
@@ -63,13 +75,14 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      textTheme: AppTypography.textTheme(Brightness.light),
       scaffoldBackgroundColor: colorScheme.surface,
       cardTheme: CardThemeData(
         color: _lightCard,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           side: const BorderSide(color: _lightBorder),
         ),
       ),
@@ -77,15 +90,15 @@ class AppTheme {
         filled: true,
         fillColor: _lightCard,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(AppRadii.sharp),
           borderSide: const BorderSide(color: _lightBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(AppRadii.sharp),
           borderSide: const BorderSide(color: _lightBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(AppRadii.sharp),
           borderSide: const BorderSide(color: _lightRing, width: 2),
         ),
       ),
@@ -93,7 +106,9 @@ class AppTheme {
         style: FilledButton.styleFrom(
           backgroundColor: _lightPrimary,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_radius)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.sharp),
+          ),
         ),
       ),
       extensions: const [AppSemanticColors.light],
@@ -121,13 +136,14 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      textTheme: AppTypography.textTheme(Brightness.dark),
       scaffoldBackgroundColor: colorScheme.surface,
       cardTheme: CardThemeData(
         color: _darkCard,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           side: const BorderSide(color: _darkBorder),
         ),
       ),
@@ -135,15 +151,15 @@ class AppTheme {
         filled: true,
         fillColor: _darkCard,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(AppRadii.sharp),
           borderSide: const BorderSide(color: _darkBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(AppRadii.sharp),
           borderSide: const BorderSide(color: _darkBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(AppRadii.sharp),
           borderSide: const BorderSide(color: _darkRing, width: 2),
         ),
       ),
@@ -151,7 +167,9 @@ class AppTheme {
         style: FilledButton.styleFrom(
           backgroundColor: _darkPrimary,
           foregroundColor: _darkBackground,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_radius)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.sharp),
+          ),
         ),
       ),
       extensions: const [AppSemanticColors.dark],
