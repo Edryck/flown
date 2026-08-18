@@ -11,8 +11,9 @@ import '../../../core/models/focus_session_type.dart';
 import '../../../core/models/project.dart';
 import '../../../core/models/task.dart';
 import '../../../core/models/task_priority.dart';
-import '../../../core/widgets/badge_size.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/priority_badge.dart';
+import '../../../core/widgets/priority_banner.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../../settings/providers/settings_preferences.dart';
 import '../../statistics/providers/dashboard_stats_repository.dart';
@@ -676,7 +677,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
                                 border: Border.all(
                                   color: Colors.white.withValues(alpha: 0.1),
                                 ),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(AppRadii.card),
                               ),
                               child: Text(
                                 _mode == _FocusMode.pomodoro
@@ -736,10 +737,10 @@ class _FocusTaskCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(28),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppRadii.card),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.3),
@@ -751,26 +752,23 @@ class _FocusTaskCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(task.title, style: theme.textTheme.headlineSmall),
-              ),
-              const SizedBox(width: 12),
-              PriorityBadge(priority: task.priority, size: BadgeSize.md),
-            ],
-          ),
-          if ((task.description ?? '').isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              task.description!,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-          const SizedBox(height: 20),
+          PriorityBanner(priority: task.priority),
+          Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(task.title, style: theme.textTheme.headlineSmall),
+                if ((task.description ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    task.description!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
           // `width: double.infinity` de propósito — sem isso, o Container
           // encolhe pra largura dos 3 itens (o Column pai usa
           // crossAxisAlignment.start), então a linha divisória e a fileira
@@ -818,7 +816,7 @@ class _FocusTaskCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(AppRadii.sharp),
             child: LinearProgressIndicator(
               value: (task.progress ?? 0) / 100,
               minHeight: 10,
@@ -847,7 +845,7 @@ class _FocusTaskCard extends StatelessWidget {
                     color: colorScheme.surfaceContainerHighest.withValues(
                       alpha: 0.6,
                     ),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppRadii.sharp),
                   ),
                   child: Row(
                     children: [
@@ -888,7 +886,7 @@ class _FocusTaskCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppRadii.sharp),
                   onTap: () => onToggleChecklistItem(i, !checklist[i].done),
                   child: Container(
                     width: double.infinity,
@@ -900,7 +898,7 @@ class _FocusTaskCard extends StatelessWidget {
                       color: colorScheme.surfaceContainerHighest.withValues(
                         alpha: 0.6,
                       ),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppRadii.sharp),
                     ),
                     child: Row(
                       children: [
@@ -936,6 +934,9 @@ class _FocusTaskCard extends StatelessWidget {
               ),
             ),
           ],
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1093,7 +1094,7 @@ class _ModeToggle extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppRadii.card),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1129,10 +1130,10 @@ class _ModeToggleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected ? const Color(0xFF4A9E99) : Colors.transparent,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(AppRadii.sharp),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppRadii.sharp),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Text(
@@ -1189,7 +1190,7 @@ class _FocusMetricsRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.05),
               border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadii.card),
             ),
             child: Column(
               children: [
