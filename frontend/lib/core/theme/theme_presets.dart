@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 
+import 'app_theme.dart';
+import 'app_typography.dart';
 import 'semantic_colors.dart';
 
 /// Temas de paleta fixa, escolhidos nas Configurações > Aparência > Paleta.
 /// Diferente do Padrão Flown (`AppTheme.light`/`.dark`, que segue o toggle
 /// claro/escuro do sistema), cada preset aqui é uma identidade visual única
-/// e fechada - "Dark Forest" é sempre escuro, "Golden Forest" é sempre claro
-/// etc. - por isso `ThemeData` único por preset, sem variante de brilho.
+/// e fechada - "Dark Forest" é sempre escuro, "Mystical Garden" é sempre
+/// claro etc. - por isso `ThemeData` único por preset, sem variante de
+/// brilho. `isLight`/`isDark` agrupam os cards de seleção nas Configurações
+/// em duas seções (Claro/Escuro); Padrão Flown fica de fora dos dois grupos.
 enum ThemePreset {
   flown('flown', 'Padrão Flown'),
   mysticalGarden('mystical_garden', 'Mystical Garden'),
   greenSerenity('green_serenity', 'Green Serenity'),
-  goldenForest('golden_forest', 'Golden Forest'),
   darkForest('dark_forest', 'Dark Forest'),
   midnightOcean('midnight_ocean', 'Midnight Ocean');
 
@@ -23,13 +26,16 @@ enum ThemePreset {
   static ThemePreset fromId(String id) =>
       ThemePreset.values.firstWhere((p) => p.id == id, orElse: () => flown);
 
+  bool get isLight => this == mysticalGarden || this == greenSerenity;
+
+  bool get isDark => this == darkForest || this == midnightOcean;
+
   /// `null` pro Padrão Flown - esse continua dependendo de
   /// `AppThemeMode`/brilho do sistema, ao contrário dos demais.
   ThemeData? get fixedThemeData => switch (this) {
     ThemePreset.flown => null,
     ThemePreset.mysticalGarden => AppThemePresets.mysticalGarden,
     ThemePreset.greenSerenity => AppThemePresets.greenSerenity,
-    ThemePreset.goldenForest => AppThemePresets.goldenForest,
     ThemePreset.darkForest => AppThemePresets.darkForest,
     ThemePreset.midnightOcean => AppThemePresets.midnightOcean,
   };
@@ -52,11 +58,6 @@ enum ThemePreset {
       Color(0xFF8FB996),
       Color(0xFFA1CCA5),
     ],
-    ThemePreset.goldenForest => const [
-      Color(0xFFABA361),
-      Color(0xFFBAD9B5),
-      Color(0xFFEFF7CF),
-    ],
     ThemePreset.darkForest => const [
       Color(0xFF12562A),
       Color(0xFF720714),
@@ -77,8 +78,6 @@ enum ThemePreset {
 /// muted, destructive, ring) derivados pra fechar um `ColorScheme` inteiro.
 class AppThemePresets {
   AppThemePresets._();
-
-  static const _radius = 10.0;
 
   static ThemeData _build({
     required Color primary,
@@ -116,13 +115,14 @@ class AppThemePresets {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      textTheme: AppTypography.textTheme(brightness),
       scaffoldBackgroundColor: background,
       cardTheme: CardThemeData(
         color: card,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           side: BorderSide(color: border),
         ),
       ),
@@ -130,15 +130,15 @@ class AppThemePresets {
         filled: true,
         fillColor: card,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(AppRadii.sharp),
           borderSide: BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(AppRadii.sharp),
           borderSide: BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(AppRadii.sharp),
           borderSide: BorderSide(color: ring, width: 2),
         ),
       ),
@@ -146,7 +146,9 @@ class AppThemePresets {
         style: FilledButton.styleFrom(
           backgroundColor: primary,
           foregroundColor: onPrimary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_radius)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.sharp),
+          ),
         ),
       ),
       extensions: [semanticColors],
@@ -185,24 +187,6 @@ class AppThemePresets {
     destructive: const Color(0xFFB5533F),
     onDestructive: Colors.white,
     ring: const Color(0xFF709775),
-    brightness: Brightness.light,
-    semanticColors: AppSemanticColors.light,
-  );
-
-  /// Claro, quente - creme e mostarda, com marsala como contraste/erro.
-  static ThemeData get goldenForest => _build(
-    primary: const Color(0xFFABA361),
-    onPrimary: const Color(0xFF2E2A0A),
-    secondary: const Color(0xFFBAD9B5),
-    onSecondary: const Color(0xFF1F2A1C),
-    background: const Color(0xFFEFF7CF),
-    card: Colors.white,
-    foreground: const Color(0xFF420C14),
-    mutedForeground: const Color(0xFF6B5F47),
-    border: const Color(0xFFE3D9B8),
-    destructive: const Color(0xFF732C2C),
-    onDestructive: Colors.white,
-    ring: const Color(0xFFABA361),
     brightness: Brightness.light,
     semanticColors: AppSemanticColors.light,
   );

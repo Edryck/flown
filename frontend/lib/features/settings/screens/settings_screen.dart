@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/models/task_priority.dart';
+import '../../../core/navigation/nav_layout_provider.dart';
 import '../../../core/theme/theme_mode_provider.dart';
 import '../../../core/theme/theme_preset_provider.dart';
 import '../../../core/theme/theme_presets.dart';
@@ -284,6 +285,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final themeMode = ref.watch(appThemeModeProvider);
     final themePreset =
         ref.watch(appThemePresetProvider).valueOrNull ?? ThemePreset.flown;
+    final navLayout = ref.watch(appNavLayoutProvider).valueOrNull ?? NavLayout.sidebar;
     final isDark = switch (themeMode) {
       ThemeMode.dark => true,
       ThemeMode.light => false,
@@ -367,6 +369,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             onThemePresetChanged: (preset) => ref
                                 .read(appThemePresetProvider.notifier)
                                 .select(preset),
+                            navLayout: navLayout,
+                            onNavLayoutChanged: (layout) => ref
+                                .read(appNavLayoutProvider.notifier)
+                                .select(layout),
                             particlesEnabled: _particlesEnabled,
                             onParticlesEnabledChanged: (v) =>
                                 setState(() => _particlesEnabled = v),
@@ -693,6 +699,8 @@ class _AppearanceSection extends StatelessWidget {
     required this.onChanged,
     required this.themePreset,
     required this.onThemePresetChanged,
+    required this.navLayout,
+    required this.onNavLayoutChanged,
     required this.particlesEnabled,
     required this.onParticlesEnabledChanged,
     required this.particleCount,
@@ -711,6 +719,8 @@ class _AppearanceSection extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final ThemePreset themePreset;
   final ValueChanged<ThemePreset> onThemePresetChanged;
+  final NavLayout navLayout;
+  final ValueChanged<NavLayout> onNavLayoutChanged;
   final bool particlesEnabled;
   final ValueChanged<bool> onParticlesEnabledChanged;
   final int particleCount;
@@ -765,6 +775,12 @@ class _AppearanceSection extends StatelessWidget {
         _ThemePresetPicker(
           selected: themePreset,
           onSelected: onThemePresetChanged,
+        ),
+        const Divider(),
+        _SettingRow(
+          label: 'Navegação',
+          description: 'Menu lateral (recolhível, cobre celular) ou a barra superior original',
+          control: _NavLayoutSegmentedControl(layout: navLayout, onChanged: onNavLayoutChanged),
         ),
         const Divider(),
         Padding(
@@ -1328,16 +1344,76 @@ class _ThemePresetPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+    final lightPresets = ThemePreset.values.where((p) => p.isLight);
+    final darkPresets = ThemePreset.values.where((p) => p.isDark);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final preset in ThemePreset.values)
-          _ThemePresetCard(
-            preset: preset,
-            selected: preset == selected,
-            onTap: () => onSelected(preset),
+        _ThemePresetCard(
+          preset: ThemePreset.flown,
+          selected: selected == ThemePreset.flown,
+          onTap: () => onSelected(ThemePreset.flown),
+        ),
+        const SizedBox(height: 16),
+        _ThemePresetGroup(
+          label: 'Claro',
+          presets: lightPresets,
+          selected: selected,
+          onSelected: onSelected,
+        ),
+        const SizedBox(height: 16),
+        _ThemePresetGroup(
+          label: 'Escuro',
+          presets: darkPresets,
+          selected: selected,
+          onSelected: onSelected,
+        ),
+      ],
+    );
+  }
+}
+
+class _ThemePresetGroup extends StatelessWidget {
+  const _ThemePresetGroup({
+    required this.label,
+    required this.presets,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final Iterable<ThemePreset> presets;
+  final ThemePreset selected;
+  final ValueChanged<ThemePreset> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
           ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final preset in presets)
+              _ThemePresetCard(
+                preset: preset,
+                selected: preset == selected,
+                onTap: () => onSelected(preset),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -1403,6 +1479,44 @@ class _ThemePresetCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NavLayoutSegmentedControl extends StatelessWidget {
+  const _NavLayoutSegmentedControl({required this.layout, required this.onChanged});
+
+  final NavLayout layout;
+  final ValueChanged<NavLayout> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ThemeOption(
+            icon: Icons.view_sidebar_outlined,
+            label: 'Lateral',
+            selected: layout == NavLayout.sidebar,
+            onTap: () => onChanged(NavLayout.sidebar),
+          ),
+          _ThemeOption(
+            icon: Icons.view_headline,
+            label: 'Superior',
+            selected: layout == NavLayout.topBar,
+            onTap: () => onChanged(NavLayout.topBar),
+          ),
+        ],
       ),
     );
   }
