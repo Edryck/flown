@@ -109,7 +109,15 @@ String _formatElapsed(DateTime createdAt) {
 /// ancorado no próprio ícone em vez de um campo. Sem tela cheia/rota
 /// própria de propósito — o dropdown já é a "central de notificações".
 class NotificationBell extends ConsumerStatefulWidget {
-  const NotificationBell({super.key});
+  const NotificationBell({super.key, this.anchorAbove = false});
+
+  /// `true` quando o sino fica perto do fundo da tela (rodapé da
+  /// `AppSidebar`) - sem isso, o painel tentava abrir pra baixo e pra
+  /// esquerda a partir de um ícone que já está colado na borda inferior
+  /// esquerda, saindo inteiro da área visível (parecia que o clique não
+  /// fazia nada). No `TopNavBar` (ícone no topo, com espaço sobrando embaixo
+  /// e à esquerda) o padrão original continua servindo bem.
+  final bool anchorAbove;
 
   static const _groupId = 'top-nav-notifications';
 
@@ -160,13 +168,15 @@ class _NotificationBellState extends ConsumerState<NotificationBell> {
             // `-(panelWidth - iconWidth)` (que dependia de eu acertar a
             // largura exata do IconButton renderizado, fácil de errar e
             // empurrar o painel pra fora da área visível da janela).
-            targetAnchor: Alignment.bottomRight,
-            followerAnchor: Alignment.topRight,
-            offset: const Offset(0, 8),
+            // Com `anchorAbove`, inverte pra cima/direita - o ícone no
+            // rodapé da sidebar não tem espaço embaixo nem à esquerda.
+            targetAnchor: widget.anchorAbove ? Alignment.topLeft : Alignment.bottomRight,
+            followerAnchor: widget.anchorAbove ? Alignment.bottomLeft : Alignment.topRight,
+            offset: Offset(0, widget.anchorAbove ? -8 : 8),
             child: TapRegion(
               groupId: NotificationBell._groupId,
               child: Align(
-                alignment: Alignment.topRight,
+                alignment: widget.anchorAbove ? Alignment.bottomLeft : Alignment.topRight,
                 child: _NotificationPanel(
                   notifications: result.notifications,
                   onTapNotification: (n) {
