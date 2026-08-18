@@ -8,13 +8,18 @@ import '../../../core/models/project.dart';
 import '../../../core/models/project_type.dart';
 import '../../../core/models/task.dart';
 import '../../../core/models/task_priority.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/form_section_card.dart';
 import '../../../core/widgets/priority_badge.dart';
+import '../../../core/widgets/status_badge.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../../projects/providers/project_type_repository.dart';
 import '../../settings/providers/settings_preferences.dart';
 import '../providers/task_list_controller.dart';
 import '../providers/task_repository.dart';
+import '../utils/task_hierarchy.dart';
 import '../utils/task_status_colors.dart';
+import 'task_view_dialog.dart';
 
 /// Abre o formulário de criação/edição de tarefa como modal, por cima da
 /// tela atual (Kanban/Tabela/Calendário/etc.) — ao contrário de uma rota
@@ -295,20 +300,23 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
     final projects = projectsAsync.valueOrNull ?? const <Project>[];
     final types = typesAsync.valueOrNull ?? const <ProjectType>[];
     final availableStatus = _availableStatusFor(projects, types);
+    final allTasks = ref.watch(taskListControllerProvider).valueOrNull ?? const <Task>[];
     // Subtarefa não tem vencimento próprio (herda o da tarefa-mãe, imposto
     // pelo backend em `task.service.ts`) — resolve o valor herdado só pra
     // exibir, já que o campo de data fica escondido nesse caso.
     final parentDueDate = _parentTaskId == null
         ? null
-        : ref
-              .watch(taskListControllerProvider)
-              .valueOrNull
-              ?.where((t) => t.id == _parentTaskId)
-              .firstOrNull
-              ?.dueDate;
+        : allTasks.where((t) => t.id == _parentTaskId).firstOrNull?.dueDate;
+    // Só em modo edição (task já tem id) - uma task nova ainda não existe
+    // no backend, não dá pra amarrar subtarefa a um parentTaskId que não
+    // existe ainda.
+    final subtasks = widget.isEdit
+        ? subtasksOf(widget.initialTask!, allTasks)
+        : const <Task>[];
+    final statusOrder = resolveStatusOrder(types, allTasks);
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.card)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 800,
@@ -365,8 +373,10 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _FormCard(
+                      FormSectionCard(
                         title: 'Informações Básicas',
+                        icon: Icons.info_outline,
+                        description: 'O essencial: o que precisa ser feito e por quê.',
                         children: [
                           TextFormField(
                             controller: _titleController,
@@ -388,10 +398,12 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 28),
 
-                      _FormCard(
+                      FormSectionCard(
                         title: 'Organização',
+                        icon: Icons.folder_outlined,
+                        description: 'Onde essa tarefa se encaixa e o quanto ela importa.',
                         children: [
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,6 +524,11 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                               const SizedBox(width: 8),
                               OutlinedButton(
                                 onPressed: _addTag,
+                                style: OutlinedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppRadii.sharp),
+                                  ),
+                                ),
                                 child: const Icon(Icons.add, size: 18),
                               ),
                             ],
@@ -526,16 +543,24 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                                   Chip(
                                     label: Text(tag),
                                     onDeleted: () => _removeTag(tag),
+                                    // Não fica no StadiumBorder padrão do
+                                    // Chip (pill totalmente redondo) -
+                                    // mesmo raio apertado do resto do app.
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(AppRadii.sharp),
+                                    ),
                                   ),
                               ],
                             ),
                           ],
                         ],
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 28),
 
-                      _FormCard(
+                      FormSectionCard(
                         title: 'Cronograma',
+                        icon: Icons.event_outlined,
+                        description: 'Quando essa tarefa precisa estar pronta.',
                         children: [
                           if (_parentTaskId != null)
                             // Subtarefa não define vencimento próprio — só
@@ -589,10 +614,12 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 28),
 
-                      _FormCard(
+                      FormSectionCard(
                         title: 'Lista de Verificação',
+                        icon: Icons.checklist_outlined,
+                        description: 'Passos menores dentro dessa tarefa.',
                         children: [
                           Row(
                             children: [
@@ -608,6 +635,11 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                               const SizedBox(width: 8),
                               OutlinedButton(
                                 onPressed: _addChecklistItem,
+                                style: OutlinedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppRadii.sharp),
+                                  ),
+                                ),
                                 child: const Icon(Icons.add, size: 18),
                               ),
                             ],
@@ -626,7 +658,7 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                                     color: theme
                                         .colorScheme
                                         .surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(AppRadii.card),
                                   ),
                                   child: Row(
                                     children: [
@@ -648,6 +680,79 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
                           ],
                         ],
                       ),
+
+                      // Só em edição, e só pra tarefas de nível superior -
+                      // subtarefa não tem subtarefa própria (1 nível só, ver
+                      // task_hierarchy.dart). "Perto do checklist" de
+                      // propósito: as duas são formas de quebrar a tarefa em
+                      // partes menores, faz sentido ficarem vizinhas.
+                      if (widget.isEdit && _parentTaskId == null) ...[
+                        const SizedBox(height: 28),
+                        FormSectionCard(
+                          title: 'Subtarefas',
+                          icon: Icons.account_tree_outlined,
+                          description: 'Divida essa tarefa em tarefas menores e independentes.',
+                          children: [
+                            if (subtasks.isEmpty)
+                              Text(
+                                'Nenhuma subtarefa ainda',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              )
+                            else
+                              for (final subtask in subtasks)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(AppRadii.card),
+                                    onTap: () =>
+                                        showTaskViewDialog(context, task: subtask),
+                                    child: Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(AppRadii.card),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              subtask.title,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          StatusBadge(
+                                            label: statusLabelPtBr(subtask.status),
+                                            colorIndex: statusOrder.isEmpty
+                                                ? 0
+                                                : statusOrder
+                                                      .indexOf(subtask.status)
+                                                      .clamp(0, statusOrder.length - 1),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: () => showTaskFormDialog(
+                                context,
+                                initialParentTaskId: widget.initialTask!.id,
+                                initialProjectId: _projectId,
+                              ),
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('Adicionar Subtarefa'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -684,40 +789,6 @@ class _TaskFormDialogState extends ConsumerState<_TaskFormDialog> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _FormCard extends StatelessWidget {
-  const _FormCard({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...children,
-        ],
       ),
     );
   }

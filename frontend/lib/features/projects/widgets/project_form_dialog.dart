@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../core/models/project.dart';
 import '../../../core/models/project_type.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/form_section_card.dart';
 import '../providers/project_list_controller.dart';
 import '../providers/project_repository.dart';
 import '../providers/project_type_repository.dart';
@@ -129,7 +131,7 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
     final types = typesAsync.valueOrNull ?? const <ProjectType>[];
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.card)),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: 700, maxHeight: screenSize.height * 0.85),
         child: Form(
@@ -171,8 +173,10 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _FormCard(
+                      FormSectionCard(
                         title: 'Informações Básicas',
+                        icon: Icons.info_outline,
+                        description: 'Nome e do que se trata o projeto.',
                         children: [
                           TextFormField(
                             controller: _nameController,
@@ -188,9 +192,11 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      _FormCard(
+                      const SizedBox(height: 28),
+                      FormSectionCard(
                         title: 'Organização',
+                        icon: Icons.category_outlined,
+                        description: 'Define quais status as tarefas desse projeto podem ter.',
                         children: [
                           DropdownButtonFormField<String>(
                             initialValue: _typeId,
@@ -202,9 +208,11 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      _FormCard(
+                      const SizedBox(height: 28),
+                      FormSectionCard(
                         title: 'Cor do Projeto',
+                        icon: Icons.palette_outlined,
+                        description: 'Identificação visual nos cards e listas.',
                         children: [
                           Text(
                             'Escolha uma cor para identificar visualmente o projeto nos cards e listas.',
@@ -288,14 +296,14 @@ class _ColorSwatch extends StatelessWidget {
       message: label,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadii.sharp),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           width: 36,
           height: 36,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppRadii.sharp),
             border: selected
                 ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 2)
                 : Border.all(color: Colors.transparent, width: 2),
@@ -306,31 +314,3 @@ class _ColorSwatch extends StatelessWidget {
   }
 }
 
-class _FormCard extends StatelessWidget {
-  const _FormCard({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 16),
-          ...children,
-        ],
-      ),
-    );
-  }
-}

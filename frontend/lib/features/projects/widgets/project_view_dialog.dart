@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import '../../../core/models/project.dart';
 import '../../../core/models/project_type.dart';
 import '../../../core/models/task.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/semantic_colors.dart';
+import '../../../core/widgets/form_section_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../tasks/providers/task_list_controller.dart';
 import '../../tasks/utils/task_hierarchy.dart';
@@ -101,7 +103,7 @@ class _ProjectViewDialog extends ConsumerWidget {
     );
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.card)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 640,
@@ -165,57 +167,74 @@ class _ProjectViewDialog extends ConsumerWidget {
                   ),
                 ],
               ),
-              if (stats.taskCount > 0) ...[
+              if (stats.taskCount > 0 || stats.nextDueDate != null) ...[
                 const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                FormSectionCard(
+                  title: 'Progresso',
+                  icon: Icons.donut_large_outlined,
+                  description: 'O quanto do projeto já foi concluído.',
                   children: [
-                    Text('Progresso', style: theme.textTheme.labelLarge),
-                    Text(
-                      '${stats.progress}%',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                    if (stats.taskCount > 0) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Tarefas concluídas', style: theme.textTheme.labelLarge),
+                          Text(
+                            '${stats.progress}%',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadii.sharp),
+                        child: LinearProgressIndicator(
+                          value: stats.progress / 100,
+                          minHeight: 10,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                        ),
+                      ),
+                    ],
+                    if (stats.nextDueDate != null) ...[
+                      if (stats.taskCount > 0) const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 16,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Próximo prazo: ${DateFormat('dd/MM/yyyy').format(stats.nextDueDate!)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: stats.progress / 100,
-                    minHeight: 10,
-                    backgroundColor: colorScheme.surfaceContainerHighest,
-                  ),
-                ),
               ],
-              if (stats.nextDueDate != null) ...[
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 16,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      DateFormat('dd/MM/yyyy').format(stats.nextDueDate!),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              const SizedBox(height: 20),
+              FormSectionCard(
+                title: 'Tarefas (${tasks.length})',
+                icon: Icons.folder_outlined,
+                description: 'Todas as tarefas desse projeto, com as subtarefas aninhadas.',
                 children: [
-                  Text(
-                    'Tarefas (${tasks.length})',
-                    style: theme.textTheme.labelLarge,
-                  ),
+                  if (tasks.isEmpty)
+                    Text(
+                      'Nenhuma tarefa neste projeto ainda',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    )
+                  else
+                    _ProjectTasksTree(tasks: tasks, statusOrder: statusOrder),
+                  const SizedBox(height: 8),
                   TextButton.icon(
                     onPressed: () => showTaskFormDialog(
                       context,
@@ -226,16 +245,6 @@ class _ProjectViewDialog extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              if (tasks.isEmpty)
-                Text(
-                  'Nenhuma tarefa neste projeto ainda',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                )
-              else
-                _ProjectTasksTree(tasks: tasks, statusOrder: statusOrder),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -364,14 +373,14 @@ class _ProjectTasksTreeState extends State<_ProjectTasksTree> {
           ),
           Expanded(
             child: InkWell(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadii.card),
               onTap: () => showTaskViewDialog(context, task: task),
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppRadii.card),
                 ),
                 child: Row(
                   children: [
@@ -408,14 +417,14 @@ class _ProjectTasksTreeState extends State<_ProjectTasksTree> {
             _TreeConnector(isLast: isLast),
             Expanded(
               child: InkWell(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppRadii.card),
                 onTap: () => showTaskViewDialog(context, task: subtask),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppRadii.card),
                   ),
                   child: Row(
                     children: [
