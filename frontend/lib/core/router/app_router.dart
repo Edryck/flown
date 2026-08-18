@@ -104,7 +104,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/tasks',
-            builder: (context, state) => const TasksScreen(),
+            builder: (context, state) => TasksScreen(
+              initialOnlyOverdue: state.uri.queryParameters['overdue'] == 'true',
+            ),
           ),
           GoRoute(
             path: '/notes',

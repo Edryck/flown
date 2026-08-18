@@ -31,6 +31,59 @@ int countCompletedToday(List<Task> tasks) {
 
 int countInProgress(List<Task> tasks) => tasks.where((t) => t.status == 'In Progress').length;
 
+/// Tasks criadas na semana atual (domingo a hoje) - mesma janela de
+/// [computeWeeklyProductivitySummary], pro card "Visão Geral" mostrar
+/// criadas/concluídas lado a lado com a mesma referência de tempo.
+int countCreatedThisWeek(List<Task> tasks) {
+  final today = _dateOnly(DateTime.now());
+  final sunday = today.subtract(Duration(days: today.weekday % 7));
+  return tasks.where((t) => !_dateOnly(t.createdAt).isBefore(sunday)).length;
+}
+
+class StatusBreakdown {
+  const StatusBreakdown({
+    required this.todo,
+    required this.inProgress,
+    required this.overdue,
+    required this.completed,
+  });
+
+  final int todo;
+  final int inProgress;
+  final int overdue;
+  final int completed;
+}
+
+/// Partição mutuamente exclusiva de todas as tasks em 4 grupos fixos (A
+/// Fazer/Em Andamento/Atrasada/Concluída) — diferente de `byStatus` da tela
+/// de Estatísticas, que particiona pelo `status` dinâmico de cada
+/// `ProjectType` (não dá pra montar um "A Fazer" universal a partir disso,
+/// já que o nome do status varia por tipo de projeto). Aqui a ordem de
+/// prioridade evita contar a mesma task 2x (ex: atrasada E "In Progress" ao
+/// mesmo tempo conta só como atrasada): concluída > atrasada > em andamento
+/// > a fazer.
+StatusBreakdown computeStatusBreakdown(List<Task> tasks) {
+  var todo = 0;
+  var inProgress = 0;
+  var overdue = 0;
+  var completed = 0;
+  final today = _dateOnly(DateTime.now());
+
+  for (final task in tasks) {
+    if (task.completedAt != null) {
+      completed++;
+    } else if (task.dueDate != null && _dateOnly(task.dueDate!).isBefore(today)) {
+      overdue++;
+    } else if (task.status == 'In Progress') {
+      inProgress++;
+    } else {
+      todo++;
+    }
+  }
+
+  return StatusBreakdown(todo: todo, inProgress: inProgress, overdue: overdue, completed: completed);
+}
+
 /// "Foco Atual" do protótipo: `Array.find` (primeira task só) com
 /// `status === 'in_progress' && priority === 'high'` — mantido como critério
 /// único de propósito (docs/prototype/screens/dashboard.md, seção

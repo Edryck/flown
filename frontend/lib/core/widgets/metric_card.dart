@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
 import '../theme/semantic_colors.dart';
 
 /// Indicador de tendência do MetricCard (seta + texto colorido). Equivalente
@@ -87,7 +88,7 @@ class _MetricCardState extends State<MetricCard>
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: theme.cardTheme.color ?? colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppRadii.hero),
               border: Border.all(color: colorScheme.outlineVariant),
               boxShadow: _hovering
                   ? [

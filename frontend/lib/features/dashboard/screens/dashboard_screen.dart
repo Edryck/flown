@@ -6,22 +6,22 @@ import 'package:intl/intl.dart';
 
 import '../../../core/models/project.dart';
 import '../../../core/models/task.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../../core/widgets/badge_size.dart';
-import '../../../core/widgets/metric_card.dart';
+import '../../../core/widgets/global_search_field.dart';
 import '../../../core/widgets/priority_badge.dart';
 import '../../../core/widgets/screen_gradient_backdrop.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../notes/providers/note_list_controller.dart';
-import '../../notes/widgets/note_form_dialog.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../../projects/providers/project_type_repository.dart';
 import '../../statistics/providers/dashboard_stats_repository.dart';
 import '../../tasks/providers/task_list_controller.dart';
 import '../../tasks/utils/task_hierarchy.dart';
 import '../../tasks/utils/task_status_colors.dart';
-import '../../tasks/widgets/task_form_dialog.dart';
 import '../utils/dashboard_derivations.dart';
+import '../widgets/hero_metrics_panel.dart';
 
 /// Tela inicial — tradução de Dashboard.tsx
 /// (docs/prototype/screens/dashboard.md), mas com todo número derivado de
@@ -49,17 +49,43 @@ class DashboardScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Painel',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              'Bem-vindo! Aqui está o que está acontecendo hoje.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final title = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Painel',
+                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      'Bem-vindo! Aqui está o que está acontecendo hoje.',
+                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                );
+
+                // Busca global cross-entidade mora aqui, não na navegação -
+                // ver global_search_field.dart.
+                if (constraints.maxWidth < 700) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      title,
+                      const SizedBox(height: 12),
+                      GlobalSearchField(width: constraints.maxWidth),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: title),
+                    const GlobalSearchField(),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 24),
             taskListAsync.when(
@@ -81,7 +107,6 @@ class DashboardScreen extends ConsumerWidget {
                     projectTypeListAsync.valueOrNull ?? const [];
                 final projectsById = {for (final p in projects) p.id: p};
                 final statusOrder = resolveStatusOrder(projectTypes, tasks);
-                final overdue = countOverdue(tasks);
                 final weeklySummary = computeWeeklyProductivitySummary(
                   statsAsync.valueOrNull?.productivity.heatmap ?? const [],
                 );
@@ -89,7 +114,10 @@ class DashboardScreen extends ConsumerWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _MetricsRow(tasks: tasks),
+                    HeroMetricsPanel(
+                      tasks: tasks,
+                      onTapOverdue: () => context.go('/tasks?overdue=true'),
+                    ),
                     const SizedBox(height: 24),
                     LayoutBuilder(
                       builder: (context, constraints) {
@@ -100,8 +128,8 @@ class DashboardScreen extends ConsumerWidget {
                                 tasks,
                               )?.projectId],
                         );
-                        final quickActions = _QuickActionsCard(
-                          overdueCount: overdue,
+                        final weekly = _WeeklyProductivityCard(
+                          summary: weeklySummary,
                         );
 
                         if (constraints.maxWidth < 700) {
@@ -109,7 +137,7 @@ class DashboardScreen extends ConsumerWidget {
                             children: [
                               focusCard,
                               const SizedBox(height: 24),
-                              quickActions,
+                              weekly,
                             ],
                           );
                         }
@@ -119,7 +147,7 @@ class DashboardScreen extends ConsumerWidget {
                             children: [
                               Expanded(flex: 2, child: focusCard),
                               const SizedBox(width: 24),
-                              Expanded(child: quickActions),
+                              Expanded(child: weekly),
                             ],
                           ),
                         );
@@ -133,8 +161,10 @@ class DashboardScreen extends ConsumerWidget {
                           projectsById: projectsById,
                           statusOrder: statusOrder,
                         );
-                        final weekly = _WeeklyProductivityCard(
-                          summary: weeklySummary,
+                        final overview = _TaskOverviewCard(
+                          createdThisWeek: countCreatedThisWeek(tasks),
+                          completedThisWeek: weeklySummary.total,
+                          breakdown: computeStatusBreakdown(tasks),
                         );
 
                         if (constraints.maxWidth < 700) {
@@ -142,7 +172,7 @@ class DashboardScreen extends ConsumerWidget {
                             children: [
                               upcoming,
                               const SizedBox(height: 24),
-                              weekly,
+                              overview,
                             ],
                           );
                         }
@@ -152,7 +182,7 @@ class DashboardScreen extends ConsumerWidget {
                             children: [
                               Expanded(flex: 2, child: upcoming),
                               const SizedBox(width: 24),
-                              Expanded(child: weekly),
+                              Expanded(child: overview),
                             ],
                           ),
                         );
@@ -186,7 +216,7 @@ class _SectionCard extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadii.card),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: child,
@@ -194,58 +224,6 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _MetricsRow extends StatelessWidget {
-  const _MetricsRow({required this.tasks});
-
-  final List<Task> tasks;
-
-  @override
-  Widget build(BuildContext context) {
-    final semantic = context.semanticColors;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 900
-            ? 4
-            : (constraints.maxWidth >= 500 ? 2 : 1);
-        return GridView.count(
-          crossAxisCount: columns,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 2.6,
-          children: [
-            MetricCard(
-              title: 'Vencimento Hoje',
-              value: '${countDueToday(tasks)}',
-              icon: Icons.schedule_outlined,
-              iconColor: const Color(0xFF2B6CB0),
-            ),
-            MetricCard(
-              title: 'Tarefas Atrasadas',
-              value: '${countOverdue(tasks)}',
-              icon: Icons.error_outline,
-              iconColor: semantic.priorityHigh,
-            ),
-            MetricCard(
-              title: 'Concluído Hoje',
-              value: '${countCompletedToday(tasks)}',
-              icon: Icons.check_circle_outline,
-              iconColor: semantic.priorityLow,
-            ),
-            MetricCard(
-              title: 'Em Andamento',
-              value: '${countInProgress(tasks)}',
-              icon: Icons.track_changes_outlined,
-              iconColor: semantic.priorityMedium,
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
 
 /// "Foco Atual" — só a primeira task `In Progress` + prioridade alta (ver
 /// `findCurrentFocusTask`), igual ao protótipo.
@@ -419,116 +397,6 @@ class _CurrentFocusCard extends StatelessWidget {
                 ],
               ],
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionsCard extends StatelessWidget {
-  const _QuickActionsCard({required this.overdueCount});
-
-  final int overdueCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final semantic = context.semanticColors;
-
-    return _SectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Ações Rápidas',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () => showTaskFormDialog(context),
-            icon: const Icon(Icons.add, size: 16),
-            label: const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Criar Tarefa'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () => context.go('/focus'),
-            icon: const Icon(Icons.center_focus_strong_outlined, size: 16),
-            label: const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Modo Foco'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () => showNoteFormDialog(context),
-            icon: const Icon(Icons.description_outlined, size: 16),
-            label: const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Nova Anotação'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () => context.go('/tasks'),
-            icon: const Icon(Icons.visibility_outlined, size: 16),
-            label: const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Ver Atrasadas'),
-            ),
-          ),
-          if (overdueCount > 0) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: semantic.priorityHighContainer,
-                border: Border.all(
-                  color: semantic.priorityHigh.withValues(alpha: 0.2),
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.warning_amber_outlined,
-                    size: 20,
-                    color: semantic.priorityHigh,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Tarefas Atrasadas',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: semantic.priorityHigh,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Você tem $overdueCount ${overdueCount == 1 ? 'tarefa atrasada' : 'tarefas atrasadas'} que '
-                          'precisa${overdueCount == 1 ? '' : 'm'} de atenção',
-                          style: TextStyle(
-                            color: semantic.priorityHigh.withValues(alpha: 0.8),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -788,6 +656,114 @@ class _WeeklyProductivityCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Substitui a posição original de "Esta Semana" (que subiu pra ficar ao
+/// lado de "Foco Atual") - criadas/concluídas na semana + distribuição fixa
+/// de status em barras (A Fazer/Em Andamento/Atrasada/Concluída), inspirado
+/// no `_StatusPieChart` da tela de Estatísticas mas em barra e com grupos
+/// fixos em vez do `status` dinâmico por `ProjectType` (ver
+/// `computeStatusBreakdown`).
+class _TaskOverviewCard extends StatelessWidget {
+  const _TaskOverviewCard({
+    required this.createdThisWeek,
+    required this.completedThisWeek,
+    required this.breakdown,
+  });
+
+  final int createdThisWeek;
+  final int completedThisWeek;
+  final StatusBreakdown breakdown;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final semantic = context.semanticColors;
+
+    final groups = [
+      (label: 'A Fazer', value: breakdown.todo, color: colorScheme.secondary),
+      (label: 'Andamento', value: breakdown.inProgress, color: semantic.priorityMedium),
+      (label: 'Atrasada', value: breakdown.overdue, color: semantic.priorityHigh),
+      (label: 'Concluída', value: breakdown.completed, color: semantic.priorityLow),
+    ];
+    final maxValue = groups.map((g) => g.value).fold<int>(0, (max, v) => v > max ? v : max);
+
+    return _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Visão Geral',
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Criadas Esta Semana', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
+              Text('$createdThisWeek', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Concluídas Esta Semana', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
+              Text('$completedThisWeek', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 200,
+            child: BarChart(
+              BarChartData(
+                maxY: (maxValue == 0 ? 1 : maxValue) * 1.2,
+                alignment: BarChartAlignment.spaceAround,
+                gridData: const FlGridData(show: false),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final index = value.round();
+                        if (index < 0 || index >= groups.length || index != value) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(groups[index].label, style: const TextStyle(fontSize: 11)),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                barGroups: [
+                  for (var i = 0; i < groups.length; i++)
+                    BarChartGroupData(
+                      x: i,
+                      barRods: [
+                        BarChartRodData(
+                          toY: groups[i].value.toDouble(),
+                          color: groups[i].color,
+                          width: 28,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
