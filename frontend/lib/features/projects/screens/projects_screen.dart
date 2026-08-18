@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/task.dart';
-import '../../../core/widgets/metric_card.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/semantic_colors.dart';
 import '../../../core/widgets/screen_gradient_backdrop.dart';
+import '../../../core/widgets/stat_card.dart';
 import '../../tasks/providers/task_list_controller.dart';
 import '../providers/project_list_controller.dart';
 import '../utils/project_stats.dart';
@@ -187,13 +189,14 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               crossAxisCount: columns,
                               mainAxisSpacing: 24,
                               crossAxisSpacing: 24,
-                              // Ajustado depois que os botões Editar/Remover
-                              // saíram do card (foram pro ProjectViewDialog) e
-                              // os espaçamentos internos encolheram — valor
-                              // sensível a overflow de 1px (ver histórico:
-                              // 260 estourava com progresso + prazo juntos),
-                              // conferir visualmente se sobrar/faltar espaço.
-                              mainAxisExtent: 232,
+                              // Valor sensível a overflow de 1px (ver
+                              // histórico: 260 já estourou antes com
+                              // progresso + prazo juntos) - subiu de 232 pra
+                              // 256 depois que o cabeçalho do card virou um
+                              // bloco tintado com padding próprio (mais alto
+                              // que a barra de 4px de antes), conferir
+                              // visualmente se sobra/falta espaço.
+                              mainAxisExtent: 256,
                             ),
                             itemBuilder: (context, index) {
                               final project = filtered[index];
@@ -220,6 +223,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   }
 }
 
+/// Faixa única com os 4 números lado a lado - de propósito diferente do
+/// 4 cards individuais, cada um com uma faixa colorida na lateral esquerda
+/// (não um card cinza único com os números soltos dentro - isso já foi
+/// tentado e ficou chapado/mal distribuído). Cada card tem identidade
+/// própria (cor da faixa), diferente também do `HeroMetricsPanel` do
+/// Dashboard (sem hero assimétrico aqui). Substitui o grid de 4 `MetricCard`
+/// idênticos (cores hex fixas, ícone sangrando no canto) que tinha antes.
 class _MetricsRow extends StatelessWidget {
   const _MetricsRow({
     required this.total,
@@ -235,6 +245,36 @@ class _MetricsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final semantic = context.semanticColors;
+
+    final items = [
+      (
+        label: 'Total de Projetos',
+        value: total,
+        icon: Icons.folder_outlined,
+        color: colorScheme.primary,
+      ),
+      (
+        label: 'Ativos',
+        value: active,
+        icon: Icons.play_circle_outline,
+        color: colorScheme.secondary,
+      ),
+      (
+        label: 'Concluídos',
+        value: done,
+        icon: Icons.check_circle_outline,
+        color: semantic.priorityLow,
+      ),
+      (
+        label: 'Atrasados',
+        value: overdue,
+        icon: Icons.error_outline,
+        color: overdue > 0 ? semantic.priorityHigh : colorScheme.onSurfaceVariant,
+      ),
+    ];
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = constraints.maxWidth >= 900
@@ -246,32 +286,15 @@ class _MetricsRow extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 16,
           crossAxisSpacing: 16,
-          childAspectRatio: 2.6,
+          childAspectRatio: 2.2,
           children: [
-            MetricCard(
-              title: 'Total de Projetos',
-              value: '$total',
-              icon: Icons.calendar_today_outlined,
-              iconColor: const Color(0xFF2B6CB0),
-            ),
-            MetricCard(
-              title: 'Projetos Ativos',
-              value: '$active',
-              icon: Icons.schedule_outlined,
-              iconColor: const Color(0xFFB7791F),
-            ),
-            MetricCard(
-              title: 'Concluídos',
-              value: '$done',
-              icon: Icons.check_circle_outline,
-              iconColor: const Color(0xFF2F855A),
-            ),
-            MetricCard(
-              title: 'Atrasados',
-              value: '$overdue',
-              icon: Icons.error_outline,
-              iconColor: const Color(0xFFC53030),
-            ),
+            for (final item in items)
+              StatCard(
+                label: item.label,
+                value: '${item.value}',
+                icon: item.icon,
+                color: item.color,
+              ),
           ],
         );
       },
@@ -358,7 +381,7 @@ class _Toolbar extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadii.card),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
@@ -374,7 +397,7 @@ class _Toolbar extends StatelessWidget {
                 prefixIcon: const Icon(Icons.search, size: 18),
                 hintText: 'Pesquisar projetos…',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppRadii.sharp),
                 ),
               ),
             ),
@@ -472,7 +495,7 @@ class _EmptyState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 64),
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadii.card),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(

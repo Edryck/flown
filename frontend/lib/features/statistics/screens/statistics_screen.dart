@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/task_priority.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/semantic_colors.dart';
-import '../../../core/widgets/metric_card.dart';
 import '../../../core/widgets/priority_badge.dart';
 import '../../../core/widgets/screen_gradient_backdrop.dart';
+import '../../../core/widgets/stat_card.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../../tasks/providers/task_list_controller.dart';
 import '../../tasks/utils/task_hierarchy.dart';
@@ -145,12 +146,13 @@ class StatisticsScreen extends ConsumerWidget {
                                 stats.projectHealth.distribution.byPriority,
                           ),
                         );
-                        final peakHourChart = _ChartCard(
-                          title: 'Horário de Conclusão',
-                          subtitle: stats.focus.peakHour.peakHour != null
-                              ? 'Tarefas concluídas por horário do dia (pico às ${stats.focus.peakHour.peakHour}h)'
-                              : 'Tarefas concluídas por horário do dia',
-                          child: _PeakHourChart(peakHour: stats.focus.peakHour),
+                        final projectBreakdownChart = _ChartCard(
+                          title: 'Tarefas por Projeto',
+                          subtitle:
+                              'Progresso e quantidade de tarefas por projeto',
+                          child: _ProjectBreakdownChart(
+                            entries: projectBreakdown,
+                          ),
                         );
 
                         if (constraints.maxWidth < 700) {
@@ -158,7 +160,7 @@ class StatisticsScreen extends ConsumerWidget {
                             children: [
                               priorityChart,
                               const SizedBox(height: 24),
-                              peakHourChart,
+                              projectBreakdownChart,
                             ],
                           );
                         }
@@ -168,17 +170,11 @@ class StatisticsScreen extends ConsumerWidget {
                             children: [
                               Expanded(child: priorityChart),
                               const SizedBox(width: 24),
-                              Expanded(child: peakHourChart),
+                              Expanded(child: projectBreakdownChart),
                             ],
                           ),
                         );
                       },
-                    ),
-                    const SizedBox(height: 24),
-                    _ChartCard(
-                      title: 'Tarefas por Projeto',
-                      subtitle: 'Progresso e quantidade de tarefas por projeto',
-                      child: _ProjectBreakdownChart(entries: projectBreakdown),
                     ),
                     const SizedBox(height: 24),
                     _ChartCard(
@@ -236,37 +232,39 @@ class _MetricsRow extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 16,
           crossAxisSpacing: 16,
-          childAspectRatio: 2.6,
+          childAspectRatio: 2.0,
           children: [
-            MetricCard(
-              title: 'Taxa de Conclusão',
+            StatCard(
+              label: 'Taxa de Conclusão',
               value: '$ratePercent%',
               icon: Icons.track_changes_outlined,
-              iconColor: const Color(0xFF2B6CB0),
-              subtitle:
-                  '${stats.productivity.completionRate.completed} de ${stats.productivity.completionRate.created} tarefas',
+              color: const Color(0xFF2B6CB0),
+              labelFontSize: 14,
+              valueFontSize: 32,
             ),
-            MetricCard(
-              title: 'Total Concluído',
+            StatCard(
+              label: 'Total Concluído',
               value: '${stats.productivity.completionRate.completed}',
               icon: Icons.emoji_events_outlined,
-              iconColor: const Color(0xFF2E7D51),
-              subtitle: 'Últimos ${stats.windowDays} dias',
+              color: const Color(0xFF2E7D51),
+              labelFontSize: 14,
+              valueFontSize: 32,
             ),
-            MetricCard(
-              title: 'Tempo Médio',
+            StatCard(
+              label: 'Tempo Médio',
               value: avgDaysLabel,
               icon: Icons.hourglass_bottom_outlined,
-              iconColor: const Color(0xFFB2560D),
-              subtitle: 'Média entre prioridades com dados',
+              color: const Color(0xFFB2560D),
+              labelFontSize: 14,
+              valueFontSize: 32,
             ),
-            MetricCard(
-              title: 'Pontuação de Produtividade',
+            StatCard(
+              label: 'Pontuação de Produtividade',
               value: '$score',
               icon: Icons.insights_outlined,
-              iconColor: const Color(0xFF7A5AA6),
-              subtitle:
-                  'Sequência de ${stats.focus.streak} dia${stats.focus.streak == 1 ? '' : 's'}',
+              color: const Color(0xFF7A5AA6),
+              labelFontSize: 14,
+              valueFontSize: 32,
             ),
           ],
         );
@@ -294,7 +292,7 @@ class _ChartCard extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadii.card),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
@@ -412,6 +410,7 @@ class _StatusPieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final semantic = context.semanticColors;
 
     if (byStatus.isEmpty) {
@@ -468,7 +467,7 @@ class _StatusPieChart extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     '${statusLabelPtBr(entries[i].key)}: ${entries[i].value}',
-                    style: const TextStyle(fontSize: 13),
+                    style: theme.textTheme.bodySmall,
                   ),
                 ],
               ),
@@ -493,6 +492,7 @@ class _PriorityPieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final semantic = context.semanticColors;
     // Ordem de severidade (Alta -> Baixa) em vez da ordem de inserção do
     // Map, que vem do backend sem garantia de ordem.
@@ -555,102 +555,13 @@ class _PriorityPieChart extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     '${PriorityBadge.labels[entry.key]}: ${entry.value}',
-                    style: const TextStyle(fontSize: 13),
+                    style: theme.textTheme.bodySmall,
                   ),
                 ],
               ),
           ],
         ),
       ],
-    );
-  }
-}
-
-class _PeakHourChart extends StatelessWidget {
-  const _PeakHourChart({required this.peakHour});
-
-  final PeakHour peakHour;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final histogram = peakHour.histogram;
-    final hasData = histogram.any((count) => count > 0);
-
-    if (!hasData) {
-      return const SizedBox(
-        height: 260,
-        child: Center(child: Text('Sem dados suficientes ainda')),
-      );
-    }
-
-    final maxCount = histogram.reduce((a, b) => a > b ? a : b);
-
-    return SizedBox(
-      height: 260,
-      child: BarChart(
-        BarChartData(
-          maxY: maxCount * 1.2,
-          alignment: BarChartAlignment.spaceAround,
-          gridData: const FlGridData(show: true, drawVerticalLine: false),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: true, reservedSize: 32),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                // Intervalo 3 (0h, 3h, 6h...) — com 24 barras, rótulo em
-                // toda hora fica ilegível; mesma técnica defensiva de
-                // `_MonthlyBarChart`/`_WeeklyActivityChart` pra evitar pedido
-                // de rótulo fora dos índices inteiros reais.
-                interval: 3,
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  final hour = value.round();
-                  if (hour < 0 ||
-                      hour >= 24 ||
-                      hour % 3 != 0 ||
-                      hour != value) {
-                    return const SizedBox.shrink();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      '${hour}h',
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          barGroups: [
-            for (var hour = 0; hour < 24; hour++)
-              BarChartGroupData(
-                x: hour,
-                barRods: [
-                  BarChartRodData(
-                    toY: histogram[hour].toDouble(),
-                    color: hour == peakHour.peakHour
-                        ? colorScheme.primary
-                        : colorScheme.primary.withValues(alpha: 0.35),
-                    width: 8,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(3),
-                    ),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -685,9 +596,8 @@ class _ProjectBreakdownChart extends StatelessWidget {
                     entry.projectName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w500,
-                      fontSize: 13,
                     ),
                   ),
                 ),
@@ -853,7 +763,7 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 13)),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
@@ -879,7 +789,7 @@ class _InsightsPanel extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadii.card),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
@@ -928,7 +838,7 @@ class _InsightCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: data.color.withValues(alpha: 0.08),
         border: Border.all(color: data.color.withValues(alpha: 0.25)),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadii.sharp),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

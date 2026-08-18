@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/models/project.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../utils/project_stats.dart';
 
@@ -51,7 +52,7 @@ class _ProjectCardState extends State<ProjectCard> {
       child: Container(
         decoration: BoxDecoration(
           color: theme.cardTheme.color ?? colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           border: Border.all(color: colorScheme.outlineVariant),
           boxShadow: _hovering
               ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 16, offset: const Offset(0, 6))]
@@ -64,14 +65,17 @@ class _ProjectCardState extends State<ProjectCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(height: 4, color: projectColor),
-            Padding(
+            // Bloco tintado - blend em vez de cor cheia
+            // pra continuar legível com o texto padrão em qualquer um dos 6
+            // temas, sem precisar calcular contraste por projeto. 
+            Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
+              color: Color.alphaBlend(
+                projectColor.withValues(alpha: 0.8),
+                theme.cardTheme.color ?? colorScheme.surface,
+              ),
+              child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
@@ -103,14 +107,20 @@ class _ProjectCardState extends State<ProjectCard> {
                         height: 32,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: projectColor.withValues(alpha: _hovering ? 0.3 : 0.2),
-                          borderRadius: BorderRadius.circular(8),
+                          color: theme.cardTheme.color ?? colorScheme.surface,
+                          borderRadius: BorderRadius.circular(AppRadii.sharp),
                         ),
                         child: Icon(Icons.folder_outlined, color: projectColor, size: 16),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Row(
                     children: [
                       DerivedStatusBadge(stats: stats),
