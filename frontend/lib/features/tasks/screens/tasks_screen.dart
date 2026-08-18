@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/project.dart';
 import '../../../core/models/task.dart';
 import '../../../core/models/task_priority.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/screen_gradient_backdrop.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../../projects/providers/project_type_repository.dart';
@@ -49,7 +50,12 @@ const _priorityOrder = {
 /// Calendário continua recebendo a lista crua, igual ao comportamento
 /// anterior — fora do pedido original (só "modo lista").
 class TasksScreen extends ConsumerStatefulWidget {
-  const TasksScreen({super.key});
+  const TasksScreen({super.key, this.initialOnlyOverdue = false});
+
+  /// `true` quando a rota é aberta como `/tasks?overdue=true` - vem do
+  /// `HeroMetricsPanel` do Dashboard (toque no card "Tarefas Atrasadas"),
+  /// já chega com o filtro de atrasadas aplicado.
+  final bool initialOnlyOverdue;
 
   @override
   ConsumerState<TasksScreen> createState() => _TasksScreenState();
@@ -59,8 +65,12 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   _TasksView _view = _TasksView.table;
-  TaskFilterSelection _filters = const TaskFilterSelection();
-  _TaskSort _sort = _TaskSort.priority;
+  late TaskFilterSelection _filters = TaskFilterSelection(onlyOverdue: widget.initialOnlyOverdue);
+  // Prazo (não prioridade) de propósito - mostrar as mais próximas de
+  // vencer primeiro é o que faz sentido como abertura da tela; ver o caso
+  // `_TaskSort.dueDate` em `_applySort` pra como concluídas ficam sempre
+  // por último independente da data.
+  _TaskSort _sort = _TaskSort.dueDate;
 
   @override
   void dispose() {
@@ -125,11 +135,21 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
           ),
         );
       case _TaskSort.dueDate:
+        // 3 níveis, nessa ordem - nunca concluída primeiro, mesmo que o
+        // prazo dela seja o mais próximo de todos: 1) com prazo, mais
+        // próximas de vencer primeiro; 2) sem prazo; 3) concluídas.
+        int tier(Task t) {
+          if (t.completedAt != null) return 2;
+          return t.dueDate != null ? 0 : 1;
+        }
+
         sorted.sort((a, b) {
-          if (a.dueDate == null && b.dueDate == null) return 0;
-          if (a.dueDate == null) return 1;
-          if (b.dueDate == null) return -1;
-          return a.dueDate!.compareTo(b.dueDate!);
+          final tierCompare = tier(a).compareTo(tier(b));
+          if (tierCompare != 0) return tierCompare;
+          if (a.dueDate != null && b.dueDate != null) {
+            return a.dueDate!.compareTo(b.dueDate!);
+          }
+          return 0;
         });
       case _TaskSort.title:
         sorted.sort(
@@ -257,7 +277,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: theme.cardTheme.color ?? theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppRadii.card),
                 border: Border.all(color: theme.colorScheme.outlineVariant),
               ),
               child: Row(
@@ -279,7 +299,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                         prefixIcon: const Icon(Icons.search, size: 18),
                         hintText: 'Pesquisar tarefas...',
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(AppRadii.sharp),
                         ),
                       ),
                     ),
@@ -350,6 +370,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                   ),
                   _TasksView.kanban => TasksKanbanView(
                     tasks: filtered,
+                    allTasks: allTasks,
                     projectsById: projectsById,
                     statusOrder: statusOrder,
                     onMove: (taskId, newStatus) => ref

@@ -3,16 +3,18 @@ import 'package:intl/intl.dart';
 
 import '../../../core/models/project.dart';
 import '../../../core/models/task.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../../core/widgets/priority_badge.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../utils/task_status_colors.dart';
 
-/// Tabela densa de tasks — tradução fiel de TasksTableView.tsx
-/// (docs/prototype/components/tasks-table-view.md): checkbox de seleção
-/// (individual + "selecionar tudo"), nome + descrição, projeto, prioridade,
-/// status, prazo, barra de progresso e menu de ações por linha. Linhas
-/// vencidas ganham destaque visual.
+/// Tabela densa de tasks — baseada em TasksTableView.tsx
+/// (docs/prototype/components/tasks-table-view.md), mas sem o checkbox de
+/// seleção do protótipo: a seleção não acionava nenhuma ação em lote (sem
+/// callback pra fora do widget), só ocupava espaço. Colunas: nome +
+/// descrição, projeto, prioridade, status, prazo, barra de progresso e menu
+/// de ações por linha. Linhas vencidas ganham destaque visual.
 ///
 /// Usa `Table` (não `DataTable`) de propósito: `DataTable` dimensiona cada
 /// coluna só pelo conteúdo e não estica pra preencher a largura disponível
@@ -46,8 +48,8 @@ class TasksTableView extends StatefulWidget {
   final Map<String, Project> projectsById;
   final List<String> statusOrder;
 
-  /// Clique na linha (fora do checkbox/menu de ações) — abre a tarefa em
-  /// modo visualização (`TaskViewDialog`), não o form de edição completo.
+  /// Clique na linha (fora do menu de ações) — abre a tarefa em modo
+  /// visualização (`TaskViewDialog`), não o form de edição completo.
   final ValueChanged<Task> onView;
   final ValueChanged<Task> onEdit;
   final ValueChanged<Task> onDelete;
@@ -58,17 +60,14 @@ class TasksTableView extends StatefulWidget {
 }
 
 class _TasksTableViewState extends State<TasksTableView> {
-  final _selected = <String>{};
-
   static const _columnWidths = <int, TableColumnWidth>{
-    0: FixedColumnWidth(48),
-    1: FlexColumnWidth(3),
-    2: FlexColumnWidth(1.3),
-    3: FixedColumnWidth(96),
-    4: FixedColumnWidth(140),
-    5: FixedColumnWidth(100),
-    6: FlexColumnWidth(1.6),
-    7: FixedColumnWidth(96),
+    0: FlexColumnWidth(3),
+    1: FlexColumnWidth(1.3),
+    2: FixedColumnWidth(96),
+    3: FixedColumnWidth(140),
+    4: FixedColumnWidth(100),
+    5: FlexColumnWidth(1.6),
+    6: FixedColumnWidth(96),
   };
 
   bool _isOverdue(Task task) {
@@ -80,24 +79,6 @@ class _TasksTableViewState extends State<TasksTableView> {
       dueDate.month,
       dueDate.day,
     ).isBefore(DateTime(today.year, today.month, today.day));
-  }
-
-  void _toggleAll() {
-    setState(() {
-      if (_selected.length == widget.tasks.length && widget.tasks.isNotEmpty) {
-        _selected.clear();
-      } else {
-        _selected
-          ..clear()
-          ..addAll(widget.tasks.map((t) => t.id));
-      }
-    });
-  }
-
-  void _toggleOne(String id) {
-    setState(() {
-      if (!_selected.add(id)) _selected.remove(id);
-    });
   }
 
   Widget _cell(
@@ -132,7 +113,7 @@ class _TasksTableViewState extends State<TasksTableView> {
         width: double.infinity,
         decoration: BoxDecoration(
           color: theme.cardTheme.color ?? colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           border: Border.all(color: colorScheme.outlineVariant),
         ),
         padding: const EdgeInsets.symmetric(vertical: 48),
@@ -146,7 +127,6 @@ class _TasksTableViewState extends State<TasksTableView> {
       );
     }
 
-    final allSelected = _selected.length == widget.tasks.length;
     const headerLabelStyle = TextStyle(
       fontWeight: FontWeight.w500,
       fontSize: 13,
@@ -157,7 +137,7 @@ class _TasksTableViewState extends State<TasksTableView> {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadii.card),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Table(
@@ -165,13 +145,19 @@ class _TasksTableViewState extends State<TasksTableView> {
         defaultVerticalAlignment: TableCellVerticalAlignment.middle,
         children: [
           TableRow(
+            // Blend de `onSurface` sobre a cor do card (não um tom fixo de
+            // `ColorScheme`) de propósito - garante contraste em qualquer
+            // dos 6 presets: `onSurface` é sempre escolhido pra contrastar
+            // com a superfície, então misturar um pouco dele sempre escurece
+            // (tema claro) ou clareia (tema escuro) o cabeçalho em relação
+            // ao card, nunca fica parecido demais como com um tom fixo.
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              color: Color.alphaBlend(
+                colorScheme.onSurface.withValues(alpha: 0.06),
+                theme.cardTheme.color ?? colorScheme.surface,
+              ),
             ),
             children: [
-              _cell(
-                Checkbox(value: allSelected, onChanged: (_) => _toggleAll()),
-              ),
               _cell(const Text('Nome da Tarefa', style: headerLabelStyle)),
               _cell(const Text('Projeto', style: headerLabelStyle)),
               _cell(const Text('Prioridade', style: headerLabelStyle)),
@@ -194,12 +180,6 @@ class _TasksTableViewState extends State<TasksTableView> {
                 ),
               ),
               children: [
-                _cell(
-                  Checkbox(
-                    value: _selected.contains(task.id),
-                    onChanged: (_) => _toggleOne(task.id),
-                  ),
-                ),
                 _cell(
                   onTap: () => widget.onView(task),
                   Column(

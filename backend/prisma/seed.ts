@@ -3,14 +3,20 @@ import { prisma } from "../src/utils/prisma.js";
 
 const DEV_USER_ID = "dev-user";
 
+// "Backlog"/"Blocked"/"Cancelled" removidos (decisão do usuário): não faziam
+// sentido como colunas do Kanban - "Blocked" nunca era usado na prática, e
+// "Cancelled" foi substituído pelo fluxo de arquivamento (ainda não
+// implementado) em vez de um status dedicado. Confirmado 0 tasks com esses
+// status no banco antes da mudança - update seguro via upsert, sem precisar
+// migrar dado nenhum.
 const projectTypes = [
   {
     name: "software",
-    availableStatus: ["Backlog", "Todo", "In Progress", "In Review", "Blocked", "Done", "Cancelled"],
+    availableStatus: ["Todo", "In Progress", "In Review", "Done"],
   },
   {
     name: "general",
-    availableStatus: ["Todo", "In Progress", "Blocked", "Done", "Cancelled"],
+    availableStatus: ["Todo", "In Progress", "Done"],
   },
 ];
 
