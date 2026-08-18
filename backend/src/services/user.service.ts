@@ -9,7 +9,10 @@ export async function getById(userId: string) {
   return user;
 }
 
-export async function updateProfile(userId: string, data: { name?: string; email?: string }) {
+export async function updateProfile(
+  userId: string,
+  data: { name?: string; email?: string; taskArchiveDays?: number; projectArchiveDays?: number }
+) {
   if (data.email) {
     const existing = await findUserByEmail(data.email);
     if (existing && existing.id !== userId) {

@@ -7,6 +7,7 @@ import '../../../core/models/note.dart';
 import '../../../core/models/note_colors.dart';
 import '../../../core/models/project.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../archive/providers/archive_list_controller.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../providers/note_list_controller.dart';
 import 'note_form_dialog.dart';
@@ -59,14 +60,49 @@ class _NoteViewDialog extends ConsumerWidget {
     }
   }
 
+  Future<void> _confirmArchive(
+    BuildContext context,
+    WidgetRef ref,
+    Note note,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Arquivar anotação?'),
+        content: Text('Arquivar "${note.title}"? Você pode desarquivar depois, na tela de Arquivo.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Arquivar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(noteListControllerProvider.notifier).archive(note.id);
+      if (context.mounted) Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final notesAsync = ref.watch(noteListControllerProvider);
-    final note = notesAsync.valueOrNull
-        ?.where((n) => n.id == noteId)
-        .firstOrNull;
+    // Combina lista ativa + arquivo — uma nota arquivada (direto ou em
+    // cascata, junto do projeto dela) só existe em
+    // `archiveListControllerProvider`. Mesmo motivo de `task_view_dialog.dart`.
+    final activeNotes =
+        ref.watch(noteListControllerProvider).valueOrNull ?? const <Note>[];
+    final archivedNotes =
+        ref.watch(archiveListControllerProvider).valueOrNull?.notes ?? const <Note>[];
+    final note = <String, Note>{
+      for (final n in activeNotes) n.id: n,
+      for (final n in archivedNotes) n.id: n,
+    }[noteId];
 
     if (note == null) {
       // A nota pode ter sido excluída (inclusive pelo botão "Excluir" deste
@@ -77,9 +113,14 @@ class _NoteViewDialog extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    final projects =
-        ref.watch(projectListControllerProvider).valueOrNull ??
-        const <Project>[];
+    final activeProjects =
+        ref.watch(projectListControllerProvider).valueOrNull ?? const <Project>[];
+    final archivedProjects =
+        ref.watch(archiveListControllerProvider).valueOrNull?.projects ?? const <Project>[];
+    final projects = <String, Project>{
+      for (final p in activeProjects) p.id: p,
+      for (final p in archivedProjects) p.id: p,
+    }.values.toList();
     final projectName = note.projectId == null
         ? null
         : projects.where((p) => p.id == note.projectId).firstOrNull?.name;
@@ -219,17 +260,47 @@ class _NoteViewDialog extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  TextButton.icon(
-                    onPressed: () => _confirmDelete(context, ref, note),
-                    icon: Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: colorScheme.error,
-                    ),
-                    label: Text(
-                      'Excluir',
-                      style: TextStyle(color: colorScheme.error),
-                    ),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _confirmDelete(context, ref, note),
+                        icon: Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: colorScheme.error,
+                        ),
+                        label: Text(
+                          'Excluir',
+                          style: TextStyle(color: colorScheme.error),
+                        ),
+                      ),
+                      if (!note.isArchived)
+                        TextButton.icon(
+                          onPressed: () => _confirmArchive(context, ref, note),
+                          icon: const Icon(Icons.archive_outlined, size: 18),
+                          label: const Text('Arquivar'),
+                        )
+                      else if (projects.where((p) => p.id == note.projectId).firstOrNull?.isArchived ?? false)
+                        Tooltip(
+                          message: 'Desarquive o projeto pra liberar esta anotação',
+                          child: TextButton.icon(
+                            onPressed: null,
+                            icon: const Icon(Icons.unarchive_outlined, size: 18),
+                            label: const Text('Desarquivar'),
+                          ),
+                        )
+                      else
+                        TextButton.icon(
+                          onPressed: () async {
+                            await ref
+                                .read(archiveListControllerProvider.notifier)
+                                .unarchiveNote(note.id);
+                            if (context.mounted) Navigator.of(context).pop();
+                          },
+                          icon: const Icon(Icons.unarchive_outlined, size: 18),
+                          label: const Text('Desarquivar'),
+                        ),
+                    ],
                   ),
                   Row(
                     children: [

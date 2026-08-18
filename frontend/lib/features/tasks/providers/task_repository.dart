@@ -124,6 +124,20 @@ class TaskRepository {
   Future<void> permanentDelete(String id) {
     return guardApiCall(() => _dio.delete('/tasks/$id/permanent'));
   }
+
+  Future<Task> archive(String id) {
+    return guardApiCall(() async {
+      final response = await _dio.patch<Map<String, dynamic>>('/tasks/$id/archive');
+      return Task.fromJson(response.data!);
+    });
+  }
+
+  Future<Task> unarchive(String id) {
+    return guardApiCall(() async {
+      final response = await _dio.patch<Map<String, dynamic>>('/tasks/$id/unarchive');
+      return Task.fromJson(response.data!);
+    });
+  }
 }
 
 @riverpod

@@ -54,6 +54,22 @@ _NotificationDisplay _formatNotification(AppNotification notification) {
             : 'Vence em até $thresholdHours horas',
       );
 
+    case 'task_archived':
+      return _NotificationDisplay(
+        icon: Icons.archive_outlined,
+        color: const Color(0xFF6B7B8F),
+        title: payload['taskTitle'] as String? ?? '',
+        subtitle: 'Arquivada automaticamente',
+      );
+
+    case 'project_archived':
+      return _NotificationDisplay(
+        icon: Icons.archive_outlined,
+        color: const Color(0xFF6B7B8F),
+        title: payload['projectName'] as String? ?? '',
+        subtitle: 'Projeto arquivado automaticamente',
+      );
+
     case 'productivity_summary':
       final period = payload['period'] as String? ?? '';
       final completedThis =

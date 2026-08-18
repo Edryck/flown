@@ -91,6 +91,27 @@ class ProjectRepository {
   Future<void> permanentDelete(String id) {
     return guardApiCall(() => _dio.delete('/projects/$id/permanent'));
   }
+
+  Future<Project> archive(String id) {
+    return guardApiCall(() async {
+      final response = await _dio.patch<Map<String, dynamic>>('/projects/$id/archive');
+      return Project.fromJson(response.data!);
+    });
+  }
+
+  Future<Project> unarchive(String id) {
+    return guardApiCall(() async {
+      final response = await _dio.patch<Map<String, dynamic>>('/projects/$id/unarchive');
+      return Project.fromJson(response.data!);
+    });
+  }
+
+  Future<Project> complete(String id) {
+    return guardApiCall(() async {
+      final response = await _dio.patch<Map<String, dynamic>>('/projects/$id/complete');
+      return Project.fromJson(response.data!);
+    });
+  }
 }
 
 @riverpod

@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/form_section_card.dart';
 import '../../../core/widgets/priority_banner.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../archive/providers/archive_list_controller.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../../projects/providers/project_type_repository.dart';
 import '../providers/task_list_controller.dart';
@@ -55,6 +56,32 @@ class _TaskViewDialog extends ConsumerWidget {
     return type?.availableStatus ?? const [];
   }
 
+  Future<void> _confirmArchive(BuildContext context, WidgetRef ref, Task task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Arquivar tarefa?'),
+        content: Text(
+          'Subtarefas de "${task.title}" vão junto pro arquivo. Você pode desarquivar depois, na tela de Arquivo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Arquivar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(taskListControllerProvider.notifier).archive(task.id);
+      if (context.mounted) Navigator.of(context).pop();
+    }
+  }
+
   void _toggleChecklistItem(WidgetRef ref, Task task, int index, bool done) {
     final updated = [
       for (var i = 0; i < task.checklist.length; i++)
@@ -73,10 +100,21 @@ class _TaskViewDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final tasksAsync = ref.watch(taskListControllerProvider);
-    final task = tasksAsync.valueOrNull
-        ?.where((t) => t.id == taskId)
-        .firstOrNull;
+    // Combina lista ativa + arquivo — uma task arquivada (ou cascateada de
+    // um projeto arquivado, junto com as subtasks dela) só existe em
+    // `archiveListControllerProvider`, não em `taskListControllerProvider`
+    // (que por padrão exclui `isArchived: true`). Sem isso, abrir este
+    // diálogo a partir da tela de Arquivo achava a task "excluída" e fechava
+    // sozinho.
+    final activeTasks =
+        ref.watch(taskListControllerProvider).valueOrNull ?? const <Task>[];
+    final archivedTasks =
+        ref.watch(archiveListControllerProvider).valueOrNull?.tasks ?? const <Task>[];
+    final allTasksById = <String, Task>{
+      for (final t in activeTasks) t.id: t,
+      for (final t in archivedTasks) t.id: t,
+    };
+    final task = allTasksById[taskId];
 
     if (task == null) {
       // A task pode ter sido excluída por outra aba/ação enquanto o
@@ -87,9 +125,14 @@ class _TaskViewDialog extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    final projects =
-        ref.watch(projectListControllerProvider).valueOrNull ??
-        const <Project>[];
+    final activeProjects =
+        ref.watch(projectListControllerProvider).valueOrNull ?? const <Project>[];
+    final archivedProjects =
+        ref.watch(archiveListControllerProvider).valueOrNull?.projects ?? const <Project>[];
+    final projects = <String, Project>{
+      for (final p in activeProjects) p.id: p,
+      for (final p in archivedProjects) p.id: p,
+    }.values.toList();
     final types =
         ref.watch(projectTypeListProvider).valueOrNull ?? const <ProjectType>[];
     final projectName = task.projectId == null
@@ -97,7 +140,7 @@ class _TaskViewDialog extends ConsumerWidget {
         : projects.where((p) => p.id == task.projectId).firstOrNull?.name;
     final availableStatus = _availableStatusFor(task, projects, types);
     final checklist = task.checklist;
-    final allTasks = tasksAsync.valueOrNull ?? const <Task>[];
+    final allTasks = allTasksById.values.toList();
     final dueDate = effectiveDueDate(task, allTasks);
     final subtasks = task.parentTaskId == null
         ? subtasksOf(task, allTasks)
@@ -421,20 +464,41 @@ class _TaskViewDialog extends ConsumerWidget {
                     ],
                     const SizedBox(height: 24),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Fechar'),
-                        ),
-                        const SizedBox(width: 12),
-                        FilledButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            showTaskFormDialog(context, task: task);
-                          },
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          label: const Text('Editar'),
+                        if (task.isArchived)
+                          TextButton.icon(
+                            onPressed: () async {
+                              await ref
+                                  .read(archiveListControllerProvider.notifier)
+                                  .unarchiveTask(task.id);
+                              if (context.mounted) Navigator.of(context).pop();
+                            },
+                            icon: const Icon(Icons.unarchive_outlined, size: 18),
+                            label: const Text('Desarquivar'),
+                          )
+                        else
+                          TextButton.icon(
+                            onPressed: () => _confirmArchive(context, ref, task),
+                            icon: const Icon(Icons.archive_outlined, size: 18),
+                            label: const Text('Arquivar'),
+                          ),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Fechar'),
+                            ),
+                            const SizedBox(width: 12),
+                            FilledButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                showTaskFormDialog(context, task: task);
+                              },
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              label: const Text('Editar'),
+                            ),
+                          ],
                         ),
                       ],
                     ),

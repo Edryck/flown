@@ -12,6 +12,8 @@ export async function taskRoutes(app: FastifyInstance) {
   app.delete("/tasks/:id", taskController.softDelete);
   app.post("/tasks/:id/restore", taskController.restore);
   app.delete("/tasks/:id/permanent", taskController.permanentDelete);
+  app.patch("/tasks/:id/archive", taskController.archive);
+  app.patch("/tasks/:id/unarchive", taskController.unarchive);
   app.get("/tasks/:id/subtasks", taskController.listSubtasks);
   app.post("/tasks/:id/subtasks", taskController.createSubtask);
 }

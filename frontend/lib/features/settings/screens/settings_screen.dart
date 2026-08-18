@@ -75,12 +75,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _accountHydrated = false;
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _taskArchiveDaysController = TextEditingController();
+  final _projectArchiveDaysController = TextEditingController();
   bool _savingAccount = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _taskArchiveDaysController.dispose();
+    _projectArchiveDaysController.dispose();
     super.dispose();
   }
 
@@ -155,6 +159,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           .updateProfile(
             name: _nameController.text.trim(),
             email: _emailController.text.trim(),
+            taskArchiveDays: int.tryParse(_taskArchiveDaysController.text.trim()),
+            projectArchiveDays: int.tryParse(_projectArchiveDaysController.text.trim()),
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -301,6 +307,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (user != null && !_accountHydrated) {
       _nameController.text = user.name;
       _emailController.text = user.email;
+      _taskArchiveDaysController.text = user.taskArchiveDays.toString();
+      _projectArchiveDaysController.text = user.projectArchiveDays.toString();
       _accountHydrated = true;
     }
 
@@ -353,6 +361,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           _SettingsSection.account => _AccountSection(
                             nameController: _nameController,
                             emailController: _emailController,
+                            taskArchiveDaysController: _taskArchiveDaysController,
+                            projectArchiveDaysController: _projectArchiveDaysController,
                             saving: _savingAccount,
                             onSave: _saveAccount,
                             onChangePassword: _changePassword,
@@ -483,14 +493,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // escondia o efeito de toque (aviso do framework em runtime).
               child: Material(
                 color: Colors.transparent,
-                child: ListTile(
-                  leading: const Icon(Icons.delete_outline),
-                  title: const Text('Lixeira'),
-                  subtitle: const Text(
-                    'Projetos, tarefas e anotações excluídos',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.go('/trash'),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.archive_outlined),
+                      title: const Text('Arquivo'),
+                      subtitle: const Text(
+                        'Projetos, tarefas e anotações arquivados',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.go('/archive'),
+                    ),
+                    Divider(height: 1, color: theme.colorScheme.outlineVariant),
+                    ListTile(
+                      leading: const Icon(Icons.delete_outline),
+                      title: const Text('Lixeira'),
+                      subtitle: const Text(
+                        'Projetos, tarefas e anotações excluídos',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.go('/trash'),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -624,6 +648,8 @@ class _AccountSection extends StatelessWidget {
   const _AccountSection({
     required this.nameController,
     required this.emailController,
+    required this.taskArchiveDaysController,
+    required this.projectArchiveDaysController,
     required this.saving,
     required this.onSave,
     required this.onChangePassword,
@@ -632,6 +658,8 @@ class _AccountSection extends StatelessWidget {
 
   final TextEditingController nameController;
   final TextEditingController emailController;
+  final TextEditingController taskArchiveDaysController;
+  final TextEditingController projectArchiveDaysController;
   final bool saving;
   final VoidCallback onSave;
   final VoidCallback onChangePassword;
@@ -653,6 +681,32 @@ class _AccountSection extends StatelessWidget {
         TextField(
           controller: emailController,
           decoration: const InputDecoration(labelText: 'E-mail'),
+        ),
+        const SizedBox(height: 24),
+        const _SectionHeader(title: 'Arquivamento automático'),
+        Text(
+          'Tarefas concluídas e projetos concluídos vão pro Arquivo automaticamente depois desses prazos.',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: taskArchiveDaysController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Dias até arquivar tarefa concluída'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: projectArchiveDaysController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Dias até arquivar projeto concluído'),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         Wrap(

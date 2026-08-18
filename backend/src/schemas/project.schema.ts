@@ -20,6 +20,8 @@ export const projectResponseSchema = Joi.object({
     description: Joi.string().allow(null).required(),
     color: Joi.string().required(),
     isArchived: Joi.boolean().required(),
+    archivedAt: Joi.date().allow(null).required(),
+    completedAt: Joi.date().allow(null).required(),
     isDeleted: Joi.boolean().required(),
     deletedAt: Joi.date().allow(null).required(),
     order: Joi.number().required(),

@@ -13,8 +13,12 @@ import { dashboardRoutes } from "./routes/dashboard.routes.js";
 import { searchRoutes } from "./routes/search.routes.js";
 import { trashRoutes } from "./routes/trash.routes.js";
 import { notificationRoutes } from "./routes/notification.routes.js";
+import { archiveRoutes } from "./routes/archive.routes.js";
 import { checkDueSoonReminders } from "./services/reminder.service.js";
 import { checkProductivitySummaries } from "./services/productivity-summary.service.js";
+import { runAutoArchiveSweep as runTaskAutoArchiveSweep } from "./services/task.service.js";
+import { runAutoArchiveSweep as runProjectAutoArchiveSweep } from "./services/project.service.js";
+import { pruneExpiredNotifications } from "./services/notification.service.js";
 
 export function buildApp() {
   const app = Fastify({ logger: true });
@@ -50,6 +54,7 @@ export function buildApp() {
   app.register(searchRoutes);
   app.register(trashRoutes);
   app.register(notificationRoutes);
+  app.register(archiveRoutes);
 
   return app;
 }
@@ -68,6 +73,9 @@ async function start() {
   const runChecks = () => {
     checkDueSoonReminders().catch((err) => app.log.error(err));
     checkProductivitySummaries().catch((err) => app.log.error(err));
+    runTaskAutoArchiveSweep().catch((err) => app.log.error(err));
+    runProjectAutoArchiveSweep().catch((err) => app.log.error(err));
+    pruneExpiredNotifications().catch((err) => app.log.error(err));
   };
   runChecks();
   setInterval(runChecks, REMINDER_CHECK_INTERVAL_MS);

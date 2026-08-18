@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/models/task.dart';
+import '../../projects/providers/project_list_controller.dart';
 import 'task_repository.dart';
 
 part 'task_list_controller.g.dart';
@@ -38,6 +39,13 @@ class TaskListController extends _$TaskListController {
   Future<Task> create(TaskInput input) async {
     final task = await ref.read(taskRepositoryProvider).create(input);
     state = AsyncData([...?state.valueOrNull, task]);
+    if (task.projectId != null) {
+      // Criar uma task num projeto "concluído" cancela a contagem regressiva
+      // pro arquivamento automático no backend (task.service.ts:create) —
+      // recarrega o projeto pra tirar o banner "Concluído em X" da tela sem
+      // precisar reabrir o diálogo.
+      await ref.read(projectListControllerProvider.notifier).refresh();
+    }
     return task;
   }
 
@@ -72,6 +80,16 @@ class TaskListController extends _$TaskListController {
 
   Future<void> delete(String id) async {
     await ref.read(taskRepositoryProvider).softDelete(id);
+    state = AsyncData([
+      for (final t in state.valueOrNull ?? const <Task>[])
+        if (t.id != id) t,
+    ]);
+  }
+
+  /// Task arquivada some da lista principal (mesmo raciocínio de `delete`) —
+  /// quem quer vê-la de novo vai pra tela de Arquivo.
+  Future<void> archive(String id) async {
+    await ref.read(taskRepositoryProvider).archive(id);
     state = AsyncData([
       for (final t in state.valueOrNull ?? const <Task>[])
         if (t.id != id) t,

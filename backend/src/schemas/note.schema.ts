@@ -37,6 +37,8 @@ export const noteResponseSchema = Joi.object({
   order: Joi.number().required(),
   isDeleted: Joi.boolean().required(),
   deletedAt: Joi.date().allow(null).required(),
+  isArchived: Joi.boolean().required(),
+  archivedAt: Joi.date().allow(null).required(),
   projectId: Joi.string().allow(null).required(),
   createdAt: Joi.date().required(),
   updatedAt: Joi.date().required(),

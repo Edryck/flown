@@ -1,18 +1,22 @@
 import { AppError } from "../utils/errors.js";
 import type { Priority } from "../generated/prisma/enums.js";
 import { findProjectTypeById } from "../repositories/project-type.repository.js";
-import { findProjectById } from "../repositories/project.repository.js";
+import { findProjectById, updateProjectCompletedAt } from "../repositories/project.repository.js";
 import {
+  archiveSubtasksByParentId,
+  archiveTask,
   createTask,
   findSubtasks,
   findTaskById,
   findTasksByUser,
+  findTasksEligibleForAutoArchive,
   permanentDeleteSubtasksByParentId,
   permanentDeleteTask,
   reorderTasks,
   restoreTask,
   softDeleteSubtasksByParentId,
   softDeleteTask,
+  unarchiveTask,
   updateTask,
 } from "../repositories/task.repository.js";
 import { createNotification } from "../repositories/notification.repository.js";
@@ -103,6 +107,19 @@ async function assertProjectStatus(projectId: string, userId: string, status: st
   if (!availableStatus.includes(status)) {
     throw new AppError(400, `Status "${status}" is not valid for this project`);
   }
+  return project;
+}
+
+// Um projeto "concluido" (completedAt setado via PATCH /projects/:id/complete)
+// que ganha uma task nova claramente voltou a ter trabalho pendente - cancela
+// a contagem regressiva pro arquivamento automatico (project.service.ts:
+// runAutoArchiveSweep). So dispara na criacao; editar/reabrir uma task
+// existente do projeto nao cancela (ver conversa - fica pra depois se
+// precisar).
+async function cancelProjectCompletionIfNeeded(project: { id: string; completedAt: Date | null }, userId: string) {
+  if (project.completedAt) {
+    await updateProjectCompletedAt(project.id, userId, null);
+  }
 }
 
 async function assertParentTask(parentTaskId: string, userId: string) {
@@ -114,11 +131,10 @@ async function assertParentTask(parentTaskId: string, userId: string) {
 
 export async function create(userId: string, data: TaskInput) {
   if (data.projectId) {
-    if (data.status) {
-      await assertProjectStatus(data.projectId, userId, data.status);
-    } else {
-      await assertProjectOwnership(data.projectId, userId);
-    }
+    const project = data.status
+      ? await assertProjectStatus(data.projectId, userId, data.status)
+      : await assertProjectOwnership(data.projectId, userId);
+    await cancelProjectCompletionIfNeeded(project, userId);
   }
   if (data.parentTaskId) {
     await assertParentTask(data.parentTaskId, userId);
@@ -133,7 +149,13 @@ export async function create(userId: string, data: TaskInput) {
 
 export async function list(
   userId: string,
-  filters: { projectId?: string | null; isDeleted?: boolean; search?: string; tag?: string } = {}
+  filters: {
+    projectId?: string | null;
+    isDeleted?: boolean;
+    isArchived?: boolean;
+    search?: string;
+    tag?: string;
+  } = {}
 ) {
   const { tag, ...repositoryFilters } = filters;
   const tasks = await findTasksByUser(userId, repositoryFilters);
@@ -255,6 +277,57 @@ export async function permanentDelete(id: string, userId: string) {
   // se ainda existir subtask referenciando ele, entao a subtask vai primeiro.
   await permanentDeleteSubtasksByParentId(id, userId);
   await permanentDeleteTask(id, userId);
+}
+
+export async function archive(id: string, userId: string) {
+  const task = await archiveTask(id, userId);
+  if (!task) {
+    throw new AppError(404, "Task not found");
+  }
+  // Subtasks vao junto sempre, independente do status delas - mesma logica
+  // do softDelete cascateando pra subtask.
+  await archiveSubtasksByParentId(id, userId);
+  return task;
+}
+
+export async function unarchive(id: string, userId: string) {
+  const task = await findTaskById(id, userId);
+  if (!task) {
+    throw new AppError(404, "Task not found");
+  }
+  const unarchived = await unarchiveTask(id, userId);
+  if (!unarchived) {
+    throw new AppError(404, "Task not found");
+  }
+  // Reinicia a contagem pro auto-arquivamento (completedAt + taskArchiveDays)
+  // a partir de agora - pedido do usuario: desarquivar sem mexer em mais
+  // nada recomeca o prazo do zero em vez de reagendar pro passado.
+  if (unarchived.completedAt) {
+    return updateTask(id, userId, { completedAt: new Date() });
+  }
+  return unarchived;
+}
+
+// Roda periodicamente (ver server.ts, mesmo padrao de checkDueSoonReminders).
+// So avalia tasks de nivel superior - subtasks arquivam em cascata via
+// archive() acima quando a task-mae se qualifica.
+export async function runAutoArchiveSweep() {
+  const candidates = await findTasksEligibleForAutoArchive();
+  const now = Date.now();
+
+  for (const task of candidates) {
+    const completedAt = task.completedAt as Date;
+    const thresholdMs = task.user.taskArchiveDays * 24 * 60 * 60 * 1000;
+    if (now - completedAt.getTime() < thresholdMs) continue;
+
+    await archive(task.id, task.userId);
+    await createNotification({
+      userId: task.userId,
+      type: "task_archived",
+      taskId: task.id,
+      payload: { taskTitle: task.title },
+    });
+  }
 }
 
 export async function reorder(userId: string, items: { id: string; order: number }[]) {

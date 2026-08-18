@@ -19,7 +19,7 @@ export async function findProjectsByUser(
     where: {
       userId,
       isDeleted: filters.isDeleted ?? false,
-      ...(filters.isArchived !== undefined ? { isArchived: filters.isArchived } : {}),
+      isArchived: filters.isArchived ?? false,
       ...(filters.search
         ? { OR: [{ name: { contains: filters.search } }, { description: { contains: filters.search } }] }
         : {}),
@@ -80,11 +80,44 @@ export async function permanentDeleteProject(id: string, userId: string) {
 export async function archiveProject(id: string, userId: string) {
   const project = await findOwnedProject(id, userId);
   if (!project) return null;
-  return prisma.project.update({ where: { id }, data: { isArchived: true } });
+  return prisma.project.update({
+    where: { id },
+    data: { isArchived: true, archivedAt: new Date() },
+  });
 }
 
 export async function unarchiveProject(id: string, userId: string) {
   const project = await findOwnedProject(id, userId);
   if (!project) return null;
-  return prisma.project.update({ where: { id }, data: { isArchived: false } });
+  return prisma.project.update({
+    where: { id },
+    data: { isArchived: false, archivedAt: null },
+  });
+}
+
+export async function completeProject(id: string, userId: string) {
+  const project = await findOwnedProject(id, userId);
+  if (!project) return null;
+  return prisma.project.update({ where: { id }, data: { completedAt: new Date() } });
+}
+
+export async function updateProjectCompletedAt(id: string, userId: string, completedAt: Date | null) {
+  const project = await findOwnedProject(id, userId);
+  if (!project) return null;
+  return prisma.project.update({ where: { id }, data: { completedAt } });
+}
+
+// Sem `userId`, mesmo padrao de findTasksApproachingDue/
+// findTasksEligibleForAutoArchive - roda num job periodico varrendo todo
+// mundo. O corte de dias e por usuario (`user.projectArchiveDays`), a
+// comparacao final acontece em memoria no service.
+export async function findProjectsEligibleForAutoArchive() {
+  return prisma.project.findMany({
+    where: {
+      isDeleted: false,
+      isArchived: false,
+      completedAt: { not: null },
+    },
+    include: { user: { select: { id: true, projectArchiveDays: true } } },
+  });
 }

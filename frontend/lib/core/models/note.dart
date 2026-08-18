@@ -18,6 +18,8 @@ class Note with _$Note {
     required int order,
     required bool isDeleted,
     @NullableLocalDateTimeConverter() required DateTime? deletedAt,
+    required bool isArchived,
+    @NullableLocalDateTimeConverter() required DateTime? archivedAt,
     required String? projectId,
     @LocalDateTimeConverter() required DateTime createdAt,
     @LocalDateTimeConverter() required DateTime updatedAt,

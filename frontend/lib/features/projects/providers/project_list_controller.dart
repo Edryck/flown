@@ -46,4 +46,17 @@ class ProjectListController extends _$ProjectListController {
     await ref.read(projectRepositoryProvider).softDelete(id);
     state = AsyncData([for (final p in state.valueOrNull ?? const <Project>[]) if (p.id != id) p]);
   }
+
+  /// Projeto arquivado some da lista principal — some junto (no backend) das
+  /// tasks/notas dele, que o usuário revê na tela de Arquivo.
+  Future<void> archive(String id) async {
+    await ref.read(projectRepositoryProvider).archive(id);
+    state = AsyncData([for (final p in state.valueOrNull ?? const <Project>[]) if (p.id != id) p]);
+  }
+
+  Future<Project> complete(String id) async {
+    final project = await ref.read(projectRepositoryProvider).complete(id);
+    state = AsyncData([for (final p in state.valueOrNull ?? const <Project>[]) if (p.id == id) project else p]);
+    return project;
+  }
 }

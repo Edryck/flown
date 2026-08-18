@@ -45,4 +45,9 @@ class NoteListController extends _$NoteListController {
     await ref.read(noteRepositoryProvider).softDelete(id);
     state = AsyncData([for (final n in state.valueOrNull ?? const <Note>[]) if (n.id != id) n]);
   }
+
+  Future<void> archive(String id) async {
+    await ref.read(noteRepositoryProvider).archive(id);
+    state = AsyncData([for (final n in state.valueOrNull ?? const <Note>[]) if (n.id != id) n]);
+  }
 }

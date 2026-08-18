@@ -12,4 +12,6 @@ export async function noteRoutes(app: FastifyInstance) {
   app.delete("/notes/:id", noteController.softDelete);
   app.post("/notes/:id/restore", noteController.restore);
   app.delete("/notes/:id/permanent", noteController.permanentDelete);
+  app.patch("/notes/:id/archive", noteController.archive);
+  app.patch("/notes/:id/unarchive", noteController.unarchive);
 }

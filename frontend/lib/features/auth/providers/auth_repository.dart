@@ -144,13 +144,20 @@ class AuthRepository {
     });
   }
 
-  Future<User> updateProfile({String? name, String? email}) {
+  Future<User> updateProfile({
+    String? name,
+    String? email,
+    int? taskArchiveDays,
+    int? projectArchiveDays,
+  }) {
     return guardApiCall(() async {
       final response = await _dio.patch<Map<String, dynamic>>(
         '/users/me',
         data: {
           'name': ?name,
           'email': ?email,
+          'taskArchiveDays': ?taskArchiveDays,
+          'projectArchiveDays': ?projectArchiveDays,
         },
       );
       return User.fromJson(response.data!);

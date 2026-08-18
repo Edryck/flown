@@ -15,6 +15,7 @@ import '../../features/settings/screens/settings_screen.dart';
 import '../../features/statistics/screens/statistics_screen.dart';
 import '../../features/tasks/screens/tasks_screen.dart';
 import '../../features/trash/screens/trash_screen.dart';
+import '../../features/archive/screens/archive_screen.dart';
 
 /// Notifica o `GoRouter` (via `refreshListenable`) toda vez que o estado de
 /// auth muda, sem recriar a instancia do router — recriar o GoRouter a cada
@@ -119,6 +120,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/trash',
             builder: (context, state) => const TrashScreen(),
+          ),
+          GoRoute(
+            path: '/archive',
+            builder: (context, state) => const ArchiveScreen(),
           ),
           GoRoute(
             path: '/settings',

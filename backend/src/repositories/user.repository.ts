@@ -24,7 +24,10 @@ export async function createUserFromGoogle(data: { name: string; email: string; 
   return prisma.user.create({ data: { name: data.name, email: data.email, googleId: data.googleId } });
 }
 
-export async function updateUser(id: string, data: { name?: string; email?: string }) {
+export async function updateUser(
+  id: string,
+  data: { name?: string; email?: string; taskArchiveDays?: number; projectArchiveDays?: number }
+) {
   return prisma.user.update({ where: { id }, data });
 }
 

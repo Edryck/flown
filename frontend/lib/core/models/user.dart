@@ -13,6 +13,8 @@ class User with _$User {
     required String id,
     required String name,
     required String email,
+    required int taskArchiveDays,
+    required int projectArchiveDays,
     @LocalDateTimeConverter() required DateTime createdAt,
     @LocalDateTimeConverter() required DateTime updatedAt,
   }) = _User;

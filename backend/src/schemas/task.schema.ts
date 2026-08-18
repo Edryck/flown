@@ -72,6 +72,8 @@ export const taskResponseSchema = Joi.object({
   order: Joi.number().required(),
   isDeleted: Joi.boolean().required(),
   deletedAt: Joi.date().allow(null).required(),
+  isArchived: Joi.boolean().required(),
+  archivedAt: Joi.date().allow(null).required(),
   completedAt: Joi.date().allow(null).required(),
   projectId: Joi.string().allow(null).required(),
   parentTaskId: Joi.string().allow(null).required(),

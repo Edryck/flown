@@ -29,12 +29,13 @@ export async function createTask(
 
 export async function findTasksByUser(
   userId: string,
-  filters: { projectId?: string | null; isDeleted?: boolean; search?: string } = {}
+  filters: { projectId?: string | null; isDeleted?: boolean; isArchived?: boolean; search?: string } = {}
 ) {
   return prisma.task.findMany({
     where: {
       userId,
       isDeleted: filters.isDeleted ?? false,
+      isArchived: filters.isArchived ?? false,
       ...(filters.projectId !== undefined ? { projectId: filters.projectId } : {}),
       ...(filters.search
         ? { OR: [{ title: { contains: filters.search } }, { description: { contains: filters.search } }] }
@@ -113,6 +114,64 @@ export async function permanentDeleteTask(id: string, userId: string) {
   const task = await findOwnedTask(id, userId);
   if (!task) return null;
   return prisma.task.delete({ where: { id } });
+}
+
+export async function archiveTask(id: string, userId: string) {
+  const task = await findOwnedTask(id, userId);
+  if (!task) return null;
+  return prisma.task.update({
+    where: { id },
+    data: { isArchived: true, archivedAt: new Date() },
+  });
+}
+
+export async function unarchiveTask(id: string, userId: string) {
+  const task = await findOwnedTask(id, userId);
+  if (!task) return null;
+  return prisma.task.update({
+    where: { id },
+    data: { isArchived: false, archivedAt: null },
+  });
+}
+
+export async function archiveSubtasksByParentId(parentTaskId: string, userId: string) {
+  return prisma.task.updateMany({
+    where: { parentTaskId, userId },
+    data: { isArchived: true, archivedAt: new Date() },
+  });
+}
+
+export async function archiveTasksByProjectId(projectId: string, userId: string) {
+  return prisma.task.updateMany({
+    where: { projectId, userId, isDeleted: false },
+    data: { isArchived: true, archivedAt: new Date() },
+  });
+}
+
+export async function unarchiveTasksByProjectId(projectId: string, userId: string) {
+  return prisma.task.updateMany({
+    where: { projectId, userId, isDeleted: false },
+    data: { isArchived: false, archivedAt: null },
+  });
+}
+
+// Sem `userId` de proposito, mesmo padrao de `findTasksApproachingDue` -
+// roda num job periodico varrendo todo mundo de uma vez. So considera tasks
+// de nivel superior (parentTaskId: null) porque subtasks nao tem timer
+// proprio, elas vao junto quando a mae arquiva (task.service.archive). O
+// corte de dias e por usuario (`user.taskArchiveDays`), entao a comparacao
+// final acontece em memoria no service, nao aqui.
+export async function findTasksEligibleForAutoArchive() {
+  return prisma.task.findMany({
+    where: {
+      status: "Done", // == task.service.COMPLETED_STATUS - repo nao pode importar de service (ciclo)
+      isArchived: false,
+      isDeleted: false,
+      parentTaskId: null,
+      completedAt: { not: null },
+    },
+    include: { user: { select: { id: true, taskArchiveDays: true } } },
+  });
 }
 
 export async function reorderTasks(userId: string, items: { id: string; order: number }[]) {

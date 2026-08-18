@@ -42,3 +42,9 @@ export async function findRecentProductivitySummaries(userId: string, since: Dat
     select: { payload: true },
   });
 }
+
+// Sem `userId` - roda num job periodico varrendo todo mundo. Notificacoes
+// nunca sao arquivadas, so somem (hard delete) depois de um prazo fixo.
+export async function deleteOldNotifications(cutoff: Date) {
+  return prisma.notification.deleteMany({ where: { createdAt: { lt: cutoff } } });
+}

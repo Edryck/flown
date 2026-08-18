@@ -9,6 +9,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../../core/widgets/form_section_card.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../archive/providers/archive_list_controller.dart';
+import '../../auth/providers/auth_controller.dart';
 import '../../tasks/providers/task_list_controller.dart';
 import '../../tasks/utils/task_hierarchy.dart';
 import '../../tasks/utils/task_status_colors.dart';
@@ -73,14 +75,50 @@ class _ProjectViewDialog extends ConsumerWidget {
     }
   }
 
+  Future<void> _confirmArchive(
+    BuildContext context,
+    WidgetRef ref,
+    Project project,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Arquivar projeto?'),
+        content: Text(
+          'As tarefas e anotações de "${project.name}" vão junto pro arquivo. Você pode desarquivar tudo depois, na tela de Arquivo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Arquivar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(projectListControllerProvider.notifier).archive(project.id);
+      if (context.mounted) Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final projectsAsync = ref.watch(projectListControllerProvider);
-    final project = projectsAsync.valueOrNull
-        ?.where((p) => p.id == projectId)
-        .firstOrNull;
+    // Combina lista ativa + arquivo — um projeto arquivado só existe em
+    // `archiveListControllerProvider`. Mesmo motivo de `task_view_dialog.dart`.
+    final activeProjects =
+        ref.watch(projectListControllerProvider).valueOrNull ?? const <Project>[];
+    final archivedProjectsList =
+        ref.watch(archiveListControllerProvider).valueOrNull?.projects ?? const <Project>[];
+    final project = <String, Project>{
+      for (final p in activeProjects) p.id: p,
+      for (final p in archivedProjectsList) p.id: p,
+    }[projectId];
 
     if (project == null) {
       // O projeto pode ter sido removido (inclusive pelo botão "Remover"
@@ -91,8 +129,16 @@ class _ProjectViewDialog extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    final allTasks =
+    // Idem pras tasks — se o projeto arquivou, as tasks dele arquivaram
+    // junto (cascata), então também só existem no arquivo.
+    final activeTasks =
         ref.watch(taskListControllerProvider).valueOrNull ?? const <Task>[];
+    final archivedTasks =
+        ref.watch(archiveListControllerProvider).valueOrNull?.tasks ?? const <Task>[];
+    final allTasks = <String, Task>{
+      for (final t in activeTasks) t.id: t,
+      for (final t in archivedTasks) t.id: t,
+    }.values.toList();
     final types =
         ref.watch(projectTypeListProvider).valueOrNull ?? const <ProjectType>[];
     final tasks = allTasks.where((t) => t.projectId == project.id).toList();
@@ -146,6 +192,29 @@ class _ProjectViewDialog extends ConsumerWidget {
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
+                ),
+              ],
+              if (project.completedAt != null) ...[
+                const SizedBox(height: 8),
+                Builder(
+                  builder: (context) {
+                    final archiveDays =
+                        ref.watch(authControllerProvider).valueOrNull?.projectArchiveDays ?? 30;
+                    final archivesAt = project.completedAt!.add(Duration(days: archiveDays));
+                    return Row(
+                      children: [
+                        Icon(Icons.check_circle_outline, size: 16, color: colorScheme.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Concluído em ${DateFormat('dd/MM/yyyy').format(project.completedAt!)} — '
+                            'arquiva automaticamente em ${DateFormat('dd/MM/yyyy').format(archivesAt)}',
+                            style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
               const SizedBox(height: 16),
@@ -246,27 +315,65 @@ class _ProjectViewDialog extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // `Wrap` em vez de `Row` de propósito - com "Remover"+"Arquivar"
+              // de um lado e "Fechar"+"Concluir projeto"+"Editar" do outro,
+              // um `Row` com spaceBetween estourava a largura do diálogo por
+              // poucos pixels; o `Wrap` quebra pra uma segunda linha em vez
+              // de sofrer overflow.
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                runSpacing: 8,
                 children: [
-                  TextButton.icon(
-                    onPressed: () => _confirmDelete(context, ref, project),
-                    icon: Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: colorScheme.error,
-                    ),
-                    label: Text(
-                      'Remover',
-                      style: TextStyle(color: colorScheme.error),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _confirmDelete(context, ref, project),
+                        icon: Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: colorScheme.error,
+                        ),
+                        label: Text(
+                          'Remover',
+                          style: TextStyle(color: colorScheme.error),
+                        ),
+                      ),
+                      if (project.isArchived)
+                        TextButton.icon(
+                          onPressed: () async {
+                            await ref
+                                .read(archiveListControllerProvider.notifier)
+                                .unarchiveProject(project.id);
+                            if (context.mounted) Navigator.of(context).pop();
+                          },
+                          icon: const Icon(Icons.unarchive_outlined, size: 18),
+                          label: const Text('Desarquivar'),
+                        )
+                      else
+                        TextButton.icon(
+                          onPressed: () => _confirmArchive(context, ref, project),
+                          icon: const Icon(Icons.archive_outlined, size: 18),
+                          label: const Text('Arquivar'),
+                        ),
+                    ],
                   ),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: const Text('Fechar'),
                       ),
+                      const SizedBox(width: 12),
+                      if (project.completedAt == null)
+                        OutlinedButton.icon(
+                          onPressed: () => ref
+                              .read(projectListControllerProvider.notifier)
+                              .complete(project.id),
+                          icon: const Icon(Icons.task_alt_outlined, size: 18),
+                          label: const Text('Concluir projeto'),
+                        ),
                       const SizedBox(width: 12),
                       FilledButton.icon(
                         onPressed: () {
@@ -504,8 +611,4 @@ class _TreeConnectorPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _TreeConnectorPainter oldDelegate) =>
       oldDelegate.isLast != isLast || oldDelegate.color != color;
-}
-
-extension _FirstOrNull<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
 }

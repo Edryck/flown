@@ -13,6 +13,7 @@ export async function projectRoutes(app: FastifyInstance) {
   app.delete("/projects/:id/permanent", projectController.permanentDelete);
   app.patch("/projects/:id/archive", projectController.archive);
   app.patch("/projects/:id/unarchive", projectController.unarchive);
+  app.patch("/projects/:id/complete", projectController.complete);
   app.get("/projects/:id/tasks", projectController.listTasks);
   app.get("/projects/:id/notes", projectController.listNotes);
 }

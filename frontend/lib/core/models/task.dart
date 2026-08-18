@@ -29,6 +29,8 @@ class Task with _$Task {
     required int order,
     required bool isDeleted,
     @NullableLocalDateTimeConverter() required DateTime? deletedAt,
+    required bool isArchived,
+    @NullableLocalDateTimeConverter() required DateTime? archivedAt,
     @NullableLocalDateTimeConverter() required DateTime? completedAt,
     required String? projectId,
     required String? parentTaskId,

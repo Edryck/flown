@@ -41,6 +41,7 @@ class TasksTableView extends StatefulWidget {
     required this.onView,
     required this.onEdit,
     required this.onDelete,
+    required this.onArchive,
     required this.onViewSubtasks,
   });
 
@@ -53,6 +54,7 @@ class TasksTableView extends StatefulWidget {
   final ValueChanged<Task> onView;
   final ValueChanged<Task> onEdit;
   final ValueChanged<Task> onDelete;
+  final ValueChanged<Task> onArchive;
   final ValueChanged<Task> onViewSubtasks;
 
   @override
@@ -293,6 +295,8 @@ class _TasksTableViewState extends State<TasksTableView> {
                           switch (action) {
                             case _RowAction.edit:
                               widget.onEdit(task);
+                            case _RowAction.archive:
+                              widget.onArchive(task);
                             case _RowAction.delete:
                               widget.onDelete(task);
                           }
@@ -305,6 +309,16 @@ class _TasksTableViewState extends State<TasksTableView> {
                                 Icon(Icons.edit_outlined, size: 16),
                                 SizedBox(width: 8),
                                 Text('Editar'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: _RowAction.archive,
+                            child: Row(
+                              children: [
+                                Icon(Icons.archive_outlined, size: 16),
+                                SizedBox(width: 8),
+                                Text('Arquivar'),
                               ],
                             ),
                           ),
@@ -338,4 +352,4 @@ class _TasksTableViewState extends State<TasksTableView> {
   }
 }
 
-enum _RowAction { edit, delete }
+enum _RowAction { edit, archive, delete }

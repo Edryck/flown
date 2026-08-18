@@ -14,6 +14,8 @@ class Project with _$Project {
     required String? description,
     required String color,
     required bool isArchived,
+    @NullableLocalDateTimeConverter() required DateTime? archivedAt,
+    @NullableLocalDateTimeConverter() required DateTime? completedAt,
     required bool isDeleted,
     @NullableLocalDateTimeConverter() required DateTime? deletedAt,
     required int order,

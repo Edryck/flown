@@ -76,6 +76,12 @@ export async function unarchive(request: FastifyRequest, reply: FastifyReply) {
   return reply.status(200).send(formatResponse(projectResponseSchema, project));
 }
 
+export async function complete(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as { id: string };
+  const project = await projectService.complete(id, request.user.id);
+  return reply.status(200).send(formatResponse(projectResponseSchema, project));
+}
+
 export async function listTasks(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.params as { id: string };
   await projectService.getById(id, request.user.id);

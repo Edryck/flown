@@ -10,10 +10,17 @@ function parseBoolean(value: unknown): boolean | undefined {
 }
 
 export async function list(request: FastifyRequest, reply: FastifyReply) {
-  const query = request.query as { projectId?: string; isDeleted?: string; q?: string; tag?: string };
+  const query = request.query as {
+    projectId?: string;
+    isDeleted?: string;
+    isArchived?: string;
+    q?: string;
+    tag?: string;
+  };
   const notes = await noteService.list(request.user.id, {
     projectId: query.projectId,
     isDeleted: parseBoolean(query.isDeleted),
+    isArchived: parseBoolean(query.isArchived),
     search: query.q,
     tag: query.tag,
   });
@@ -59,6 +66,18 @@ export async function permanentDelete(request: FastifyRequest, reply: FastifyRep
   const { id } = request.params as { id: string };
   await noteService.permanentDelete(id, request.user.id);
   return reply.status(204).send();
+}
+
+export async function archive(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as { id: string };
+  const note = await noteService.archive(id, request.user.id);
+  return reply.status(200).send(formatResponse(noteResponseSchema, note));
+}
+
+export async function unarchive(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as { id: string };
+  const note = await noteService.unarchive(id, request.user.id);
+  return reply.status(200).send(formatResponse(noteResponseSchema, note));
 }
 
 export async function reorder(request: FastifyRequest, reply: FastifyReply) {

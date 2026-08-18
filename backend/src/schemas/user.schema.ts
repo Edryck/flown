@@ -9,12 +9,16 @@ export const createUserSchema = Joi.object({
 export const updateUserSchema = Joi.object({
   name: Joi.string().trim().min(2).max(100),
   email: Joi.string().trim().lowercase().email(),
+  taskArchiveDays: Joi.number().integer().min(1),
+  projectArchiveDays: Joi.number().integer().min(1),
 }).min(1);
 
 export const userResponseSchema = Joi.object({
   id: Joi.string().required(),
   name: Joi.string().required(),
   email: Joi.string().required(),
+  taskArchiveDays: Joi.number().required(),
+  projectArchiveDays: Joi.number().required(),
   createdAt: Joi.date().required(),
   updatedAt: Joi.date().required(),
 });

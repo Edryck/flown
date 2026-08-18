@@ -20,12 +20,13 @@ export async function createNote(
 
 export async function findNotesByUser(
   userId: string,
-  filters: { projectId?: string | null; isDeleted?: boolean; search?: string } = {}
+  filters: { projectId?: string | null; isDeleted?: boolean; isArchived?: boolean; search?: string } = {}
 ) {
   return prisma.note.findMany({
     where: {
       userId,
       isDeleted: filters.isDeleted ?? false,
+      isArchived: filters.isArchived ?? false,
       ...(filters.projectId !== undefined ? { projectId: filters.projectId } : {}),
       ...(filters.search
         ? { OR: [{ title: { contains: filters.search } }, { content: { contains: filters.search } }] }
@@ -107,6 +108,38 @@ export async function softDeleteNotesByProjectId(projectId: string, userId: stri
   return prisma.note.updateMany({
     where: { projectId, userId, isDeleted: false },
     data: { isDeleted: true, deletedAt: new Date() },
+  });
+}
+
+export async function archiveNote(id: string, userId: string) {
+  const note = await findOwnedNote(id, userId);
+  if (!note) return null;
+  return prisma.note.update({
+    where: { id },
+    data: { isArchived: true, archivedAt: new Date() },
+  });
+}
+
+export async function unarchiveNote(id: string, userId: string) {
+  const note = await findOwnedNote(id, userId);
+  if (!note) return null;
+  return prisma.note.update({
+    where: { id },
+    data: { isArchived: false, archivedAt: null },
+  });
+}
+
+export async function archiveNotesByProjectId(projectId: string, userId: string) {
+  return prisma.note.updateMany({
+    where: { projectId, userId, isDeleted: false },
+    data: { isArchived: true, archivedAt: new Date() },
+  });
+}
+
+export async function unarchiveNotesByProjectId(projectId: string, userId: string) {
+  return prisma.note.updateMany({
+    where: { projectId, userId, isDeleted: false },
+    data: { isArchived: false, archivedAt: null },
   });
 }
 

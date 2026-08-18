@@ -73,10 +73,18 @@ class AuthController extends _$AuthController {
     ref.invalidate(noteListControllerProvider);
   }
 
-  Future<void> updateProfile({String? name, String? email}) async {
-    final updated = await ref
-        .read(authRepositoryProvider)
-        .updateProfile(name: name, email: email);
+  Future<void> updateProfile({
+    String? name,
+    String? email,
+    int? taskArchiveDays,
+    int? projectArchiveDays,
+  }) async {
+    final updated = await ref.read(authRepositoryProvider).updateProfile(
+      name: name,
+      email: email,
+      taskArchiveDays: taskArchiveDays,
+      projectArchiveDays: projectArchiveDays,
+    );
     state = AsyncData(updated);
   }
 
@@ -92,6 +100,8 @@ class AuthController extends _$AuthController {
         id: 'dev-user',
         name: 'Dev User',
         email: 'dev@flown.local',
+        taskArchiveDays: 3,
+        projectArchiveDays: 30,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       ),

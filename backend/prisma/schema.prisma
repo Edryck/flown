@@ -15,6 +15,10 @@ model User {
   email String @unique
   password String? // hash bcrypt - null em contas criadas via Google
   googleId String? @unique
+  // Intervalos (em dias) do sistema de arquivamento automatico, ajustaveis
+  // em Configuracoes - ver archive.service.ts/task.service.ts/project.service.ts.
+  taskArchiveDays Int @default(3)
+  projectArchiveDays Int @default(30)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -54,6 +58,11 @@ model Project {
   description String?
   color String
   isArchived Boolean @default(false)
+  archivedAt DateTime?
+  // Setado manualmente (botao "Concluir projeto" - projeto nao tem status
+  // proprio como Task). Dispara a contagem de projectArchiveDays ate o
+  // arquivamento automatico - ver project.service.ts:runAutoArchiveSweep.
+  completedAt DateTime?
   isDeleted Boolean @default(false)
   deletedAt DateTime?
   order Int @default(0)
@@ -86,6 +95,8 @@ model Task {
   order Int @default(0)
   isDeleted Boolean @default(false)
   deletedAt DateTime?
+  isArchived Boolean @default(false)
+  archivedAt DateTime?
   completedAt DateTime?
   remindersSent Json @default("[]") // horas de antecedencia (24/12/6/1) ja notificadas - ver reminder.service.ts
   createdAt DateTime @default(now())
@@ -120,6 +131,8 @@ model Note {
   order Int @default(0)
   isDeleted Boolean @default(false)
   deletedAt DateTime?
+  isArchived Boolean @default(false)
+  archivedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

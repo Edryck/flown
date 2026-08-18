@@ -97,6 +97,20 @@ class NoteRepository {
   Future<void> permanentDelete(String id) {
     return guardApiCall(() => _dio.delete('/notes/$id/permanent'));
   }
+
+  Future<Note> archive(String id) {
+    return guardApiCall(() async {
+      final response = await _dio.patch<Map<String, dynamic>>('/notes/$id/archive');
+      return Note.fromJson(response.data!);
+    });
+  }
+
+  Future<Note> unarchive(String id) {
+    return guardApiCall(() async {
+      final response = await _dio.patch<Map<String, dynamic>>('/notes/$id/unarchive');
+      return Note.fromJson(response.data!);
+    });
+  }
 }
 
 @riverpod

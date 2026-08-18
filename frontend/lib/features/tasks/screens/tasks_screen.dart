@@ -222,6 +222,31 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     }
   }
 
+  Future<void> _confirmArchive(Task task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Arquivar tarefa?'),
+        content: Text(
+          'Subtarefas de "${task.title}" vão junto pro arquivo. Você pode desarquivar depois, na tela de Arquivo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Arquivar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(taskListControllerProvider.notifier).archive(task.id);
+    }
+  }
+
   void _edit(Task task) => showTaskFormDialog(context, task: task);
 
   void _viewTask(Task task) => showTaskViewDialog(context, task: task);
@@ -366,6 +391,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     onView: _viewTask,
                     onEdit: _edit,
                     onDelete: _confirmDelete,
+                    onArchive: _confirmArchive,
                     onViewSubtasks: _viewSubtasks,
                   ),
                   _TasksView.kanban => TasksKanbanView(
