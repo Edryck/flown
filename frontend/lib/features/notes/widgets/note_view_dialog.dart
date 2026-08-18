@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/models/note.dart';
+import '../../../core/models/note_colors.dart';
 import '../../../core/models/project.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../providers/note_list_controller.dart';
 import 'note_form_dialog.dart';
@@ -83,7 +85,7 @@ class _NoteViewDialog extends ConsumerWidget {
         : projects.where((p) => p.id == note.projectId).firstOrNull?.name;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.card)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 640,
@@ -98,6 +100,15 @@ class _NoteViewDialog extends ConsumerWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Container(
+                    width: 4,
+                    height: 28,
+                    margin: const EdgeInsets.only(top: 4, right: 12),
+                    decoration: BoxDecoration(
+                      color: colorFromHex(note.color),
+                      borderRadius: BorderRadius.circular(AppRadii.sharp),
+                    ),
+                  ),
                   Expanded(
                     child: Text(
                       note.title,
@@ -132,7 +143,7 @@ class _NoteViewDialog extends ConsumerWidget {
                       ),
                       decoration: BoxDecoration(
                         color: colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(AppRadii.sharp),
                       ),
                       child: Text(
                         projectName,
@@ -151,7 +162,7 @@ class _NoteViewDialog extends ConsumerWidget {
                       ),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(AppRadii.sharp),
                       ),
                       child: Text(tag, style: theme.textTheme.labelSmall),
                     ),
@@ -171,7 +182,7 @@ class _NoteViewDialog extends ConsumerWidget {
                   color: colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.4,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadii.card),
                 ),
                 child: note.content.trim().isEmpty
                     ? Text(
@@ -194,12 +205,12 @@ class _NoteViewDialog extends ConsumerWidget {
                               ),
                               codeblockDecoration: BoxDecoration(
                                 color: colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(AppRadii.card),
                               ),
                               blockquoteDecoration: BoxDecoration(
                                 color: colorScheme.surfaceContainerHighest
                                     .withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(AppRadii.card),
                               ),
                             ),
                       ),

@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/models/note.dart';
+import '../../../core/models/note_colors.dart';
 import '../../../core/models/project.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/markdown_toolbar.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../providers/note_list_controller.dart';
 import '../providers/note_repository.dart';
@@ -47,12 +50,14 @@ class _NoteFormDialog extends ConsumerStatefulWidget {
 class _NoteFormDialogState extends ConsumerState<_NoteFormDialog> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
+  final _contentFocusNode = FocusNode();
   final _tagInputController = TextEditingController();
 
   final List<String> _tags = [];
   String? _projectId;
   bool _isPinned = false;
   bool _saving = false;
+  Color _color = colorFromHex(defaultNoteColorHex);
 
   @override
   void initState() {
@@ -64,6 +69,7 @@ class _NoteFormDialogState extends ConsumerState<_NoteFormDialog> {
       _tags.addAll(note.tags);
       _projectId = note.projectId;
       _isPinned = note.isPinned;
+      _color = colorFromHex(note.color);
     }
   }
 
@@ -71,6 +77,7 @@ class _NoteFormDialogState extends ConsumerState<_NoteFormDialog> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _contentFocusNode.dispose();
     _tagInputController.dispose();
     super.dispose();
   }
@@ -95,6 +102,7 @@ class _NoteFormDialogState extends ConsumerState<_NoteFormDialog> {
       final input = NoteInput(
         title: title,
         content: _contentController.text.trim(),
+        color: colorToHex(_color),
         tags: _tags,
         isPinned: _isPinned,
         projectId: _projectId,
@@ -126,10 +134,121 @@ class _NoteFormDialogState extends ConsumerState<_NoteFormDialog> {
     final projects = projectsAsync.valueOrNull ?? const <Project>[];
     final canSubmit = _titleController.text.trim().isNotEmpty;
 
+    final metaFields = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _titleController,
+          decoration: const InputDecoration(labelText: 'Título'),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        Text('Cor', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final option in noteColorOptions)
+              _NoteColorSwatch(
+                color: option.value,
+                label: option.label,
+                selected: option.value.toARGB32() == _color.toARGB32(),
+                onTap: () => setState(() => _color = option.value),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text('Tags', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _tagInputController,
+                decoration: const InputDecoration(hintText: 'Adicionar uma tag...'),
+                onSubmitted: (_) => _addTag(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(onPressed: _addTag, child: const Icon(Icons.add, size: 18)),
+          ],
+        ),
+        if (_tags.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in _tags) Chip(label: Text(tag), onDeleted: () => _removeTag(tag)),
+            ],
+          ),
+        ],
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String?>(
+          initialValue: _projectId,
+          decoration: const InputDecoration(labelText: 'Projeto relacionado (opcional)'),
+          items: [
+            const DropdownMenuItem(value: null, child: Text('Nenhum')),
+            for (final project in projects)
+              DropdownMenuItem(value: project.id, child: Text(project.name)),
+          ],
+          onChanged: (value) => setState(() => _projectId = value),
+        ),
+        const SizedBox(height: 8),
+        CheckboxListTile(
+          value: _isPinned,
+          onChanged: (value) => setState(() => _isPinned = value ?? false),
+          title: const Text('Fixar esta anotação'),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+        ),
+      ],
+    );
+
+    final contentEditor = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Conteúdo', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 8),
+        Container(
+          height: 360,
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(AppRadii.sharp),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              MarkdownToolbar(controller: _contentController, focusNode: _contentFocusNode),
+              Divider(height: 1, color: theme.colorScheme.outlineVariant),
+              Expanded(
+                child: TextField(
+                  controller: _contentController,
+                  focusNode: _contentFocusNode,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.all(12),
+                    hintText: 'Escreva aqui... selecione um trecho e use a barra acima pra formatar.',
+                  ),
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.card)),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 520, maxHeight: screenSize.height * 0.85),
+        constraints: BoxConstraints(maxWidth: 900, maxHeight: screenSize.height * 0.85),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -150,69 +269,30 @@ class _NoteFormDialogState extends ConsumerState<_NoteFormDialog> {
               const SizedBox(height: 20),
               Flexible(
                 child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: _titleController,
-                        decoration: const InputDecoration(labelText: 'Título'),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _contentController,
-                        decoration: const InputDecoration(
-                          labelText: 'Conteúdo',
-                          helperText: 'Aceita Markdown — títulos, **negrito**, listas...',
-                        ),
-                        maxLines: 10,
-                      ),
-                      const SizedBox(height: 16),
-                      Text('Tags', style: theme.textTheme.labelLarge),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _tagInputController,
-                              decoration: const InputDecoration(hintText: 'Adicionar uma tag...'),
-                              onSubmitted: (_) => _addTag(),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          OutlinedButton(onPressed: _addTag, child: const Icon(Icons.add, size: 18)),
-                        ],
-                      ),
-                      if (_tags.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Lado a lado só com espaço de sobra pra ambos - numa
+                      // janela estreita empilha (meta em cima, conteúdo
+                      // embaixo), mesmo padrão responsivo do resto do app.
+                      if (constraints.maxWidth < 700) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            for (final tag in _tags) Chip(label: Text(tag), onDeleted: () => _removeTag(tag)),
+                            metaFields,
+                            const SizedBox(height: 16),
+                            contentEditor,
                           ],
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String?>(
-                        initialValue: _projectId,
-                        decoration: const InputDecoration(labelText: 'Projeto relacionado (opcional)'),
-                        items: [
-                          const DropdownMenuItem(value: null, child: Text('Nenhum')),
-                          for (final project in projects)
-                            DropdownMenuItem(value: project.id, child: Text(project.name)),
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(width: 280, child: metaFields),
+                          const SizedBox(width: 24),
+                          Expanded(child: contentEditor),
                         ],
-                        onChanged: (value) => setState(() => _projectId = value),
-                      ),
-                      const SizedBox(height: 8),
-                      CheckboxListTile(
-                        value: _isPinned,
-                        onChanged: (value) => setState(() => _isPinned = value ?? false),
-                        title: const Text('Fixar esta anotação'),
-                        contentPadding: EdgeInsets.zero,
-                        controlAffinity: ListTileControlAffinity.leading,
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -234,6 +314,43 @@ class _NoteFormDialogState extends ConsumerState<_NoteFormDialog> {
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoteColorSwatch extends StatelessWidget {
+  const _NoteColorSwatch({
+    required this.color,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadii.sharp),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(AppRadii.sharp),
+            border: selected
+                ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 2)
+                : Border.all(color: Colors.transparent, width: 2),
           ),
         ),
       ),

@@ -12,6 +12,7 @@ class Note with _$Note {
     required String id,
     required String title,
     required String content,
+    required String color,
     required List<String> tags,
     required bool isPinned,
     required int order,

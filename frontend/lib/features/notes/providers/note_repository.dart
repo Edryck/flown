@@ -21,6 +21,7 @@ class NoteInput {
   const NoteInput({
     this.title = noteFieldUnset,
     this.content = noteFieldUnset,
+    this.color = noteFieldUnset,
     this.tags = noteFieldUnset,
     this.isPinned = noteFieldUnset,
     this.projectId = noteFieldUnset,
@@ -28,6 +29,7 @@ class NoteInput {
 
   final Object? title;
   final Object? content;
+  final Object? color;
   final Object? tags;
   final Object? isPinned;
   final Object? projectId;
@@ -42,6 +44,7 @@ class NoteInput {
 
     put('title', title);
     put('content', content);
+    put('color', color);
     put('tags', tags);
     put('isPinned', isPinned);
     put('projectId', projectId);

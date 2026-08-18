@@ -9,6 +9,7 @@ export async function createNote(
   data: {
     title: string;
     content: string;
+    color?: string;
     tags?: string[];
     isPinned?: boolean;
     projectId?: string | null;
@@ -63,6 +64,7 @@ export async function updateNote(
   data: Partial<{
     title: string;
     content: string;
+    color: string;
     tags: string[];
     isPinned: boolean;
     projectId: string | null;

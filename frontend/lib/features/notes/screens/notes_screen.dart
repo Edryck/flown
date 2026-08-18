@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../core/models/note.dart';
 import '../../../core/models/project.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/screen_gradient_backdrop.dart';
 import '../../projects/providers/project_list_controller.dart';
 import '../providers/note_list_controller.dart';
@@ -249,16 +251,18 @@ class _NotesGrid extends StatelessWidget {
         final columns = constraints.maxWidth >= 1000
             ? 3
             : (constraints.maxWidth >= 650 ? 2 : 1);
-        return GridView.builder(
+        // Masonry (não `GridView` com `mainAxisExtent` fixo) de propósito -
+        // cada card agora tem cor/altura próprias (nota com mais tags/chip
+        // de projeto fica mais alta), um grid de linhas uniformes escondia
+        // essa variação forçando tudo na mesma altura. Lembra mais um mural
+        // de recados assim.
+        return MasonryGridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: columns,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
           itemCount: notes.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            mainAxisExtent: 260,
-          ),
           itemBuilder: (context, index) {
             final note = notes[index];
             return NoteCard(
@@ -390,7 +394,7 @@ class _Toolbar extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadii.card),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
@@ -406,7 +410,7 @@ class _Toolbar extends StatelessWidget {
                 prefixIcon: const Icon(Icons.search, size: 18),
                 hintText: 'Pesquisar anotações...',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppRadii.sharp),
                 ),
               ),
             ),

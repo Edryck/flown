@@ -111,6 +111,10 @@ model Note {
   id String @id @default(cuid())
   title String
   content String
+  // Cor de post-it (hex) - default amarelo p/ notas ja existentes antes
+  // dessa coluna existir; ver core/models/note_colors.dart no frontend p/
+  // a paleta completa oferecida no formulario.
+  color String @default("#FDE68A")
   tags Json @default("[]")
   isPinned Boolean @default(false)
   order Int @default(0)

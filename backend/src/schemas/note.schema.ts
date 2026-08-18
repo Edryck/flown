@@ -3,6 +3,7 @@ import Joi from "joi";
 export const createNoteSchema = Joi.object({
   title: Joi.string().trim().min(2).max(100).required(),
   content: Joi.string().trim().required(),
+  color: Joi.string().trim().pattern(/^#[0-9A-Fa-f]{6}$/).optional(),
   tags: Joi.array().items(Joi.string()).optional().default([]),
   isPinned: Joi.boolean().optional(),
   projectId: Joi.string().optional().allow(null),
@@ -11,6 +12,7 @@ export const createNoteSchema = Joi.object({
 export const updateNoteSchema = Joi.object({
   title: Joi.string().trim().min(2).max(100).optional(),
   content: Joi.string().trim().optional(),
+  color: Joi.string().trim().pattern(/^#[0-9A-Fa-f]{6}$/).optional(),
   tags: Joi.array().items(Joi.string()).optional(),
   isPinned: Joi.boolean().optional(),
   projectId: Joi.string().optional().allow(null),
@@ -29,6 +31,7 @@ export const noteResponseSchema = Joi.object({
   id: Joi.string().required(),
   title: Joi.string().required(),
   content: Joi.string().required(),
+  color: Joi.string().required(),
   tags: Joi.array().items(Joi.string()).required(),
   isPinned: Joi.boolean().required(),
   order: Joi.number().required(),
